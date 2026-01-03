@@ -69,7 +69,9 @@ app.use("/api/complaints", complaintsRoutes);
 app.use("/api/health_records", HealthRecordsRoutes);
 app.use("/api/health_appointments", HealthAppointmentRoutes);
 app.use("/api/pregnancy-monitoring", PregnancyMonitoringRoutes);
-const PORT = process.env.PORT || 5000;
+
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Swagger UI available at http://localhost:${PORT}/api/docs`);
