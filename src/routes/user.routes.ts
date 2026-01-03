@@ -1,21 +1,26 @@
-import { Router } from "express";
-import { createUser, getUsers } from "../controllers/user.controller";
+import { Router } from "express"
+import { createUser, getUsers } from "../controllers/user.controller"
+import { authenticate } from "../middleware/auth.middleware"
+import { rbac } from "../middleware/rbac"
 
-const router = Router();
+const router = Router()
 
 /**
  * @swagger
  * tags:
  *   name: Users
- *   description: User management routes
+ *   description: User management (Admin only)
  */
 
 /**
  * @swagger
- * /api/users:
+ * /api/user:
  *   get:
  *     summary: Get all users
+ *     description: Retrieve all users with linked resident information (Admin only)
  *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: List of users
@@ -27,35 +32,66 @@ const router = Router();
  *                 type: object
  *                 properties:
  *                   id:
- *                     type: integer
- *                     example: 1
- *                   name:
  *                     type: string
- *                     example: "Jhon Doe"
- *                   email:
+ *                     example: "clx123abc"
+ *                   resident_id:
  *                     type: string
- *                     example: "jhon@example.com"
+ *                     example: "222"
+ *                   role:
+ *                     type: string
+ *                     example: "user"
+ *                   verified:
+ *                     type: boolean
+ *                     example: true
+ *                   resident:
+ *                     type: object
+ *                     nullable: true
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "res123"
+ *                       f_name:
+ *                         type: string
+ *                         example: "Juan"
+ *                       l_name:
+ *                         type: string
+ *                         example: "Dela Cruz"
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
  */
 
 /**
  * @swagger
- * /api/users:
+ * /api/user:
  *   post:
  *     summary: Create a new user
+ *     description: Create a user account (Admin only)
  *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - resident_id
+ *               - password
  *             properties:
  *               resident_id:
  *                 type: string
- *                 example: "Jhon Doe"
+ *                 example: "222"
  *               password:
  *                 type: string
- *                 example: "jhon@example.com"
+ *                 example: "StrongPassword123"
+ *               role:
+ *                 type: string
+ *                 example: "resident"
  *     responses:
  *       201:
  *         description: User created successfully
@@ -65,17 +101,39 @@ const router = Router();
  *               type: object
  *               properties:
  *                 id:
- *                   type: integer
- *                   example: 1
+ *                   type: string
+ *                   example: "clx123abc"
  *                 resident_id:
  *                   type: string
- *                   example: "Jhon Doe"
- *                 password:
+ *                   example: "222"
+ *                 role:
  *                   type: string
- *                   example: "jhon@example.com"
+ *                   example: "user"
+ *                 verified:
+ *                   type: boolean
+ *                   example: false
+ *       400:
+ *         description: Missing required fields
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       409:
+ *         description: User already exists
+ *       500:
+ *         description: Internal server error
  */
 
-router.get("/", getUsers);
-router.post("/", createUser);
+router.post(
+  "/user",
 
-export default router;
+  createUser
+)
+
+router.get(
+  "/user",
+
+  getUsers
+)
+
+export default router

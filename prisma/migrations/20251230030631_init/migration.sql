@@ -2,7 +2,7 @@
 CREATE TYPE "Role" AS ENUM ('resident', 'staff', 'healthworker');
 
 -- CreateTable
-CREATE TABLE "admin_setting" (
+CREATE TABLE "system_setting" (
     "id" UUID NOT NULL,
     "logo_url" TEXT NOT NULL,
     "web_name" TEXT,
@@ -10,12 +10,13 @@ CREATE TABLE "admin_setting" (
     "barangay_status" TEXT,
     "id_pattern" TEXT,
 
-    CONSTRAINT "admin_setting_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "system_setting_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "residents" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "resident_id" TEXT NOT NULL,
     "f_name" TEXT NOT NULL,
     "m_name" TEXT,
     "l_name" TEXT,
@@ -38,7 +39,7 @@ CREATE TABLE "residents" (
 -- CreateTable
 CREATE TABLE "complaints" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "complaint_type" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "filed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,7 +74,7 @@ CREATE TABLE "certificates" (
     "template_name" TEXT NOT NULL,
     "template_price" DOUBLE PRECISION,
     "template_path" TEXT,
-    "timestamp" TIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "timestamp" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "requestType" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "certificates_pkey" PRIMARY KEY ("id")
@@ -107,7 +108,7 @@ CREATE TABLE "documents" (
 -- CreateTable
 CREATE TABLE "health_appointments" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "blood_pressure" TEXT NOT NULL,
     "appointment_date" TIMESTAMP(3) NOT NULL,
     "purpose" TEXT,
@@ -121,7 +122,7 @@ CREATE TABLE "health_appointments" (
 -- CreateTable
 CREATE TABLE "health_records" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "height_cm" DECIMAL(65,30),
     "weight_kg" DECIMAL(65,30),
     "blood_type" TEXT,
@@ -155,7 +156,7 @@ CREATE TABLE "pregnancy_monitoring" (
 -- CreateTable
 CREATE TABLE "notification" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "content" TEXT,
     "mark_read" BOOLEAN NOT NULL DEFAULT false,
     "timestamp" TIME,
@@ -166,7 +167,7 @@ CREATE TABLE "notification" (
 -- CreateTable
 CREATE TABLE "transaction" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "certificate_id" UUID NOT NULL,
     "details" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
@@ -178,13 +179,16 @@ CREATE TABLE "transaction" (
 -- CreateTable
 CREATE TABLE "user" (
     "id" UUID NOT NULL,
-    "resident_id" TEXT NOT NULL,
+    "resident_id" UUID NOT NULL,
     "password" TEXT,
     "verified" BOOLEAN NOT NULL DEFAULT false,
     "role" "Role" NOT NULL DEFAULT 'resident',
 
     CONSTRAINT "user_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "residents_resident_id_key" ON "residents"("resident_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "blotter_official_blotter_number_key" ON "blotter"("official_blotter_number");

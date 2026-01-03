@@ -101,11 +101,57 @@ router.get("/:id", getResidentById)
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - resident_id
+ *               - f_name
+ *               - l_name
+ *               - contact_no
+ *             properties:
+ *               resident_id:
+ *                 type: string
+ *               f_name:
+ *                 type: string
+ *               m_name:
+ *                 type: string
+ *               l_name:
+ *                 type: string
+ *               s_name:
+ *                 type: string
+ *                 nullable: true
+ *               purok:
+ *                 type: string
+ *                 nullable: true
+ *               house_no:
+ *                 type: string
+ *                 nullable: true
+ *               sex:
+ *                 type: string
+ *                 nullable: true
+ *               b_date:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *               b_place:
+ *                 type: string
+ *                 nullable: true
+ *               voting_status:
+ *                 type: boolean
+ *               sector:
+ *                 type: string
+ *               remarks:
+ *                 type: string
+ *                 nullable: true
+ *               email_address:
+ *                 type: string
+ *                 nullable: true
+ *               contact_no:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Resident updated
  */
-router.put("/:id", updateResident)
+
+router.put("/:id", encryptFields(SENSITIVE_FIELDS), updateResident)
 
 /**
  * @swagger

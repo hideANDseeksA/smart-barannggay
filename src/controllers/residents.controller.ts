@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
+import { handlePrismaError } from "../helper/prisma.helper"
 
 /* CREATE */
 export const createResident = async (req: Request, res: Response): Promise<void> => {
@@ -9,11 +10,7 @@ export const createResident = async (req: Request, res: Response): Promise<void>
     })
     res.status(201).json(resident)
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+     handlePrismaError(err, res)
   }
 }
 
@@ -23,11 +20,7 @@ export const getResidents = async (_req: Request, res: Response): Promise<void> 
     const residents = await prisma.residents.findMany()
     res.json(residents)
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+  handlePrismaError(err, res)
   }
 }
 
@@ -45,11 +38,7 @@ export const getResidentById = async (req: Request, res: Response): Promise<void
 
     res.json(resident)
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+ handlePrismaError(err, res)
   }
 }
 
@@ -62,11 +51,7 @@ export const updateResident = async (req: Request, res: Response): Promise<void>
     })
     res.json(resident)
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+ handlePrismaError(err, res)
   }
 }
 
@@ -78,10 +63,6 @@ export const deleteResident = async (req: Request, res: Response): Promise<void>
     })
     res.json({ message: "Resident deleted successfully" })
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+   handlePrismaError(err, res)
   }
 }
