@@ -11,6 +11,8 @@ if (!SECRET || SECRET.length < 32) {
 
 const key = crypto.createHash("sha256").update(SECRET).digest();
 
+/* ================= ENCRYPT / DECRYPT ================= */
+
 export const encrypt = (text: string): string => {
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
@@ -31,4 +33,72 @@ export const decrypt = (text: string): string => {
   decrypted += decipher.final("utf8");
 
   return decrypted;
+};
+
+/* ================= HELPERS ================= */
+
+const isIsoDateString = (value: string): boolean => {
+  return !isNaN(Date.parse(value));
+};
+
+const normalizeDate = (value: any): string | any => {
+  // Date instance
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  // ISO date string
+  if (typeof value === 'string' && isIsoDateString(value)) {
+    return new Date(value).toISOString();
+  }
+
+  return value;
+};
+export const safeDecrypt = (value: any): any => {
+  // Don't touch numbers, booleans, null, undefined, or Date objects
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null ||
+    value === undefined ||
+    value instanceof Date
+  ) {
+    return value;
+  }
+
+  // Only strings should be decrypted
+  if (typeof value !== 'string') return value;
+
+  // If the string is not encrypted, just return it
+  if (!value.includes(':')) return value;
+
+  try {
+    return decrypt(value); // Only decrypt, no date parsing
+  } catch {
+    return value;
+  }
+};
+
+export const decryptAll = <T>(data: T): T => {
+  // Array
+  if (Array.isArray(data)) {
+    return data.map(decryptAll) as T;
+  }
+
+  // Date object → leave untouched
+  if (data instanceof Date) {
+    return data as T;
+  }
+
+  // Object
+  if (data !== null && typeof data === 'object') {
+    const result: any = {};
+    for (const key in data) {
+      result[key] = decryptAll((data as any)[key]);
+    }
+    return result;
+  }
+
+  // Primitive → safeDecrypt
+  return safeDecrypt(data);
 };

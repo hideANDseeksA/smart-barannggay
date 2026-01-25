@@ -14,27 +14,48 @@ enum Role {
   healthworker
 }
 
+enum Sex{
+  Male
+  Female
+}
+
+enum P_status {
+  ongoing
+  delivered
+}
+
+model purok {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String @unique
+  residents    residents[]
+}
+
+
 
 model system_setting {
   id              String  @id @default(uuid()) @db.Uuid
-  logo_url        String
+  logo_url        String?
   web_name        String?
   web_color       String?
   barangay_status String?
   id_pattern      String?
+  residentPrefix String @default("T") 
+  residentNumberType String @default("sequential") 
+  residentNumberLength Int @default(6) 
+  residentNumber Int @default(0) 
 }
 
 model residents {
   id            String   @id @default(uuid()) @db.Uuid
-  resident_id   String   @unique
+  resident_id   String   @unique  @default("")
   f_name        String
   m_name        String?
   l_name        String?
   s_name        String?
-  purok         String?
+  purok_id      String?   @db.Uuid
   house_no      String?
-  sex           String?
-  b_date        String?
+  sex           Sex @default(Male)
+  b_date        DateTime? @db.Date
   b_place       String?
   voting_status String?
   sector        String?
@@ -43,6 +64,7 @@ model residents {
   email_address String?
   contact_no    String?
 
+  purok purok?  @relation(fields: [purok_id], references: [id])
   complaints          complaints[]
   health_appointments health_appointments[]
   health_records      health_records[]
@@ -53,7 +75,7 @@ model residents {
 
 model complaints {
   id             String   @id @default(uuid()) @db.Uuid
-  resident_id    String @db.Uuid
+  resident_id    String   @db.Uuid
   complaint_type String
   description    String
   filed_at       DateTime @default(now())
@@ -155,7 +177,7 @@ model pregnancy_monitoring {
   complications          String?
   checkup_notes          String?
   last_checkup           DateTime? @db.Date
-  status                 String   @default("ongoing")
+  status                 P_status  @default(ongoing)
   created_at             DateTime @default(now())
   updated_at             DateTime @default(now())
 

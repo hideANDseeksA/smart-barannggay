@@ -7,9 +7,9 @@ import {
   deleteResident,
 } from "../controllers/residents.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
-import { decryptFields } from "../middleware/decrypt.middleware"
+import { decryptFields } from "../middleware/decrypt.middleware";
 const router = express.Router()
-const SENSITIVE_FIELDS = ["f_name", "m_name", "l_name", "s_name","b_place","house_no", "email_address", "contact_no"];
+const SENSITIVE_FIELDS = ["f_name", "m_name", "l_name", "s_name","b_place","house_no", "email_address", "contact_no","purok"];
 /**
  * @swagger
  * tags:

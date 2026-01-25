@@ -55,6 +55,8 @@ router.post(
  *   post:
  *     summary: Create a new transaction
  *     tags: [Transactions]
+ *     security:
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -68,20 +70,29 @@ router.post(
  *             properties:
  *               resident_id:
  *                 type: string
+ *                 example: "uuid-resident-id"
  *               certificate_id:
  *                 type: string
+ *                 example: "uuid-certificate-id"
  *               details:
  *                 type: string
+ *                 example: "Barangay Clearance Request"
  *     responses:
  *       201:
  *         description: Transaction created successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
-router.post("/",  
+router.post(
+  "/",
   authenticate,
   rbac("admin", "staff", "resident"),
   encryptFields(SENSITIVE_FIELDS),
   createTransaction
-)
+);
+
 
 /**
  * @swagger

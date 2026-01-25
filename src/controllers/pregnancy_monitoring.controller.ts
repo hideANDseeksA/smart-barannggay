@@ -28,36 +28,60 @@ export const getPregnancy_monitoring = async (_req: Request, res: Response): Pro
             resident: true
           }
         }
+      },
+      orderBy: {
+        created_at: "desc" // optional but recommended
       }
     });
 
-    // Decrypt relevant fields
+    // Decrypt first
     const decryptedData = pregnancy_monitoring.map(pm => {
-      if (pm.health_record) {
-        const hr = pm.health_record;
-        const resident = hr.resident;
+      if (!pm.health_record) return pm;
 
-        return {
-          ...pm,
-          health_record: {
-            blood_type: hr.blood_type ? decrypt(hr.blood_type) : null,
-            allergies: hr.allergies ? decrypt(hr.allergies) : null,
-            chronic_conditions: hr.chronic_conditions ? decrypt(hr.chronic_conditions) : null,
-            resident: resident
-              ? {
-                  f_name: resident.f_name ? decrypt(resident.f_name) : null,
-                  l_name: resident.l_name ? decrypt(resident.l_name) : null,
-                  m_name: resident.m_name ? decrypt(resident.m_name) : null,
-                  contact_no: resident.contact_no ? decrypt(resident.contact_no) : null
-                }
-              : null
-          }
+      const hr = pm.health_record;
+      const resident = hr.resident;
+
+      return {
+        ...pm,
+        health_record: {
+          ...hr,
+          blood_type: hr.blood_type ? decrypt(hr.blood_type) : null,
+          allergies: hr.allergies ? decrypt(hr.allergies) : null,
+          chronic_conditions: hr.chronic_conditions ? decrypt(hr.chronic_conditions) : null,
+          resident: resident
+            ? {
+                id: resident.id,
+                resident_id: resident.resident_id,
+                f_name: resident.f_name ? decrypt(resident.f_name) : null,
+                l_name: resident.l_name ? decrypt(resident.l_name) : null,
+                m_name: resident.m_name ? decrypt(resident.m_name) : null,
+              }
+            : null
+        }
+      };
+    });
+
+    // 🔹 GROUP BY health_record_id
+    const groupedData = decryptedData.reduce((acc: any, pm: any) => {
+      const healthId = pm.health_record_id;
+
+      if (!acc[healthId]) {
+        acc[healthId] = {
+          health_record_id: healthId,
+          health_record: pm.health_record,
+          monitoring_records: []
         };
       }
-      return pm;
-    });
 
-    res.json(decryptedData);
+      acc[healthId].monitoring_records.push({
+        ...pm,
+        health_record: undefined // avoid duplication
+      });
+
+      return acc;
+    }, {});
+
+    res.json(Object.values(groupedData));
   } catch (err) {
     if (err instanceof Error) {
       res.status(500).json({ error: err.message });
@@ -66,6 +90,7 @@ export const getPregnancy_monitoring = async (_req: Request, res: Response): Pro
     }
   }
 };
+
 
 /* READ ONE */
 export const getPregnancy_monitoringById = async (req: Request, res: Response): Promise<void> => {

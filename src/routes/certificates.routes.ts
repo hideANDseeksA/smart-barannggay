@@ -60,7 +60,7 @@ router.post(
   "/",
   upload.single("template"),        // 1️⃣ parse file
   encryptFields(SENSITIVE_FIELDS),  // 2️⃣ encrypt body fields
-  createCertificates                // 3️⃣ upload to Supabase + save path
+  createCertificates            
 )
 
 
@@ -169,8 +169,8 @@ router.get(
  */
 
 router.get("/", decryptFields(SENSITIVE_FIELDS), 
-  authenticate,
-  rbac("admin", "staff", "resident"),
+  // authenticate,
+  // rbac("admin", "staff", "resident"),
   getCertificates);
 
 

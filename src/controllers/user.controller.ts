@@ -1,7 +1,7 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
 import {hashData} from "../utils/hash.util";
-
+import { decryptAll } from "../utils/crypto.util"
 /**
  * Create user (Admin only)
  */
@@ -64,14 +64,16 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
         resident: {
           select: {
             id: true,
+            resident_id: true,
             f_name: true,
             l_name: true,
+            email_address: true,
           },
         },
       },
     })
 
-    res.status(200).json(users)
+    res.status(200).json(decryptAll(users))
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: "Internal server error" })
