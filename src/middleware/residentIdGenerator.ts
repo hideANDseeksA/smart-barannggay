@@ -1,6 +1,6 @@
 // prisma/middleware/residentIdGenerator.ts
 import { Prisma } from "@prisma/client"
-import prisma from "../../src/prisma"
+import prisma from "../prisma"
 
 export const residentIdGenerator: Prisma.Middleware = async (
   params,
