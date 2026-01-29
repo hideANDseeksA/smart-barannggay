@@ -33,17 +33,20 @@ model purok {
 
 
 model system_setting {
-  id              String  @id @default(uuid()) @db.Uuid
-  logo_url        String?
-  web_name        String?
-  web_color       String?
-  barangay_status String?
-  id_pattern      String?
-  residentPrefix String @default("T") 
-  residentNumberType String @default("sequential") 
-  residentNumberLength Int @default(6) 
-  residentNumber Int @default(0) 
+  id                     Int     @id @default(1)
+
+  logo_url               String?
+  web_name               String?
+  web_color              String?
+  barangay_status        String?
+  id_pattern             String?
+
+  residentPrefix         String  @default("T")
+  residentNumberType     String  @default("sequential")
+  residentNumberLength   Int     @default(6)
+  residentNumber         Int     @default(0)
 }
+
 
 model residents {
   id            String   @id @default(uuid()) @db.Uuid

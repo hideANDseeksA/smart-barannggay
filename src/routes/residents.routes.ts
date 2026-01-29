@@ -5,9 +5,11 @@ import {
   getResidentById,
   updateResident,
   deleteResident,
+  createResidentsFromCSV
 } from "../controllers/residents.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware";
+import { upload_csv } from "../middleware/upload"
 const router = express.Router()
 const SENSITIVE_FIELDS = ["f_name", "m_name", "l_name", "s_name","b_place","house_no", "email_address", "contact_no","purok"];
 /**
@@ -16,6 +18,35 @@ const SENSITIVE_FIELDS = ["f_name", "m_name", "l_name", "s_name","b_place","hous
  *   name: Residents
  *   description: Barangay residents management
  */
+
+/**
+ * @swagger
+ * /api/residents/import-csv:
+ *   post:
+ *     summary: Import residents from a CSV file
+ *     tags: [Residents]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Residents imported successfully
+ *       400:
+ *         description: CSV file missing or invalid
+ */
+router.post(
+  "/import-csv",
+  upload_csv.single("file"),                // multer middleware for CSV upload
+  encryptFields(SENSITIVE_FIELDS),      // encrypt sensitive fields
+  createResidentsFromCSV                // controller
+);
 
 /**
  * @swagger

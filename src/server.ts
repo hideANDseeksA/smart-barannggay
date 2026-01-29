@@ -11,6 +11,7 @@ import complaintsRoutes from "./routes/complaints.routes";
 import HealthRecordsRoutes from "./routes/health_records.routes";
 import HealthAppointmentRoutes from "./routes/health_appointments.routes";
 import PregnancyMonitoringRoutes from "./routes/pregnancy_monitoring.routes";
+import System_Setting from "./routes/system_settings.routes";
 import Purok from "./routes/purok.routes";
 import authRoutes from "./routes/auth.routes";
 import swaggerUi from "swagger-ui-express";
@@ -71,6 +72,7 @@ app.use("/api/purok", Purok);
 app.use("/api/health_records", HealthRecordsRoutes);
 app.use("/api/health_appointments", HealthAppointmentRoutes);
 app.use("/api/pregnancy-monitoring", PregnancyMonitoringRoutes);
+app.use("/api/system", System_Setting);
 
 
 const PORT = process.env.PORT || 3000;

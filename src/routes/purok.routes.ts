@@ -8,7 +8,7 @@ import {
 import { encryptFields } from "../middleware/encrypt.middleware";
 import { decryptFields } from "../middleware/decrypt.middleware";
 const router = express.Router()
-const SENSITIVE_FIELDS = ["name"];
+
 /**
  * @swagger
  * tags:
@@ -38,7 +38,7 @@ const SENSITIVE_FIELDS = ["name"];
  *       201:
  *         description: Purok created successfully
  */
-router.post("/", encryptFields(SENSITIVE_FIELDS),createPurok)
+router.post("/",createPurok)
 
 /**
  * @swagger
@@ -63,7 +63,7 @@ router.post("/", encryptFields(SENSITIVE_FIELDS),createPurok)
  *                     type: string
  *                     description: Purok name
  */
-router.get("/", decryptFields(SENSITIVE_FIELDS), getPurok)
+router.get("/", getPurok)
 
 /**
  * @swagger
