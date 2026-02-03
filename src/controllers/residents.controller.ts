@@ -8,6 +8,7 @@ import csv from "csv-parser";
 import { Readable } from "stream";
 import { csvToResidentBulkMapper } from "../utils/csvMapper";
 import { generateBulkResidentIds } from "../utils/bulkResidentIdGenerator";
+import { lowercaseDeep } from "../helper/lowercase.helper"
 
 const BATCH_SIZE = 500;
 /* CREATE */
@@ -17,10 +18,10 @@ export const createResident = async (
 ): Promise<void> => {
   try {
     // Convert b_date to full ISO string if present
-    const data = {
+    const data = lowercaseDeep({
       ...req.body,
       b_date: req.body.b_date ? new Date(req.body.b_date).toISOString() : null,
-    };
+    });
 
     // Prisma middleware will auto-generate resident_id
     const resident = await prisma.residents.create({

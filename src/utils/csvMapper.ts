@@ -1,4 +1,3 @@
-// utils/csvToResidentBulkMapper.ts
 import { Prisma } from "@prisma/client"
 import { encrypt } from "./crypto.util"
 
@@ -6,7 +5,7 @@ export const csvToResidentBulkMapper = (
   row: any,
   purokMap: Record<string, string>
 ): Prisma.residentsCreateManyInput => {
-  // Normalize keys (trimmed, case-insensitive)
+  // Normalize keys
   const normalizedRow: Record<string, string> = {}
   Object.keys(row).forEach((key) => {
     normalizedRow[key.trim()] = row[key]?.toString().trim() || ""
@@ -15,9 +14,11 @@ export const csvToResidentBulkMapper = (
   const purokName = normalizedRow["Purok"] || ""
   const purokId = purokMap[purokName]
 
-  const maybeEncrypt = (value?: string | null) => {
+  // Lowercase before encrypting (except contact_no)
+  const maybeEncrypt = (value?: string | null, keepCase = false) => {
     if (!value) return null
-    return encrypt(value)
+    const v = keepCase ? value : value.toLowerCase()
+    return encrypt(v)
   }
 
   // Safe birth date parser
@@ -29,21 +30,21 @@ export const csvToResidentBulkMapper = (
   }
 
   return {
-    f_name: maybeEncrypt(normalizedRow["First Name"]) || "Unknown",
-    l_name: maybeEncrypt(normalizedRow["Last Name"]) || "Unknown",
+    f_name: maybeEncrypt(normalizedRow["First Name"]) || "unknown",
+    l_name: maybeEncrypt(normalizedRow["Last Name"]) || "unknown",
     sex:
       normalizedRow["Sex"]?.toLowerCase() === "female"
-        ? "Female"
-        : "Male",
+        ? "female"
+        : "male",
     m_name: maybeEncrypt(normalizedRow["Middle Name"]) || null,
     s_name: maybeEncrypt(normalizedRow["Suffix"]) || null,
     b_date: parseDate(normalizedRow["Birth Date"]),
     b_place: maybeEncrypt(normalizedRow["Birth Place"]) || null,
     email_address: maybeEncrypt(normalizedRow["Email"]) || null,
-    contact_no: maybeEncrypt(normalizedRow["Contact No"]) || null,
-    sector: normalizedRow["Sector"] || null,
-    remarks: normalizedRow["Remarks"] || null,
-    voting_status: normalizedRow["Voting Status"] || null,
-    purok_id: purokId ?? null, // ✅ FK only
+    contact_no: maybeEncrypt(normalizedRow["Contact No"], true) || null, // keep original case
+    sector: normalizedRow["Sector"]?.toLowerCase() || null,
+    remarks: normalizedRow["Remarks"]?.toLowerCase() || null,
+    voting_status: normalizedRow["Voting Status"]?.toLowerCase() || null,
+    purok_id: purokId ?? null, // FK stays as-is
   }
 }

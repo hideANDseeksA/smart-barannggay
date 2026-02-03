@@ -15,8 +15,8 @@ enum Role {
 }
 
 enum Sex{
-  Male
-  Female
+  male
+  female
 }
 
 enum P_status {
@@ -57,7 +57,7 @@ model residents {
   s_name        String?
   purok_id      String?   @db.Uuid
   house_no      String?
-  sex           Sex @default(Male)
+  sex           Sex @default(male)
   b_date        DateTime? @db.Date
   b_place       String?
   voting_status String?
