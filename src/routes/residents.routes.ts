@@ -112,7 +112,7 @@ router.get("/", decryptFields(SENSITIVE_FIELDS), getResidents)
  *       404:
  *         description: Resident not found
  */
-router.get("/:id", getResidentById)
+router.get("/:id", decryptFields(SENSITIVE_FIELDS), getResidentById)
 
 /**
  * @swagger

@@ -2,7 +2,7 @@ import { Request, Response } from "express"
 import prisma from "../prisma"
 import bcrypt from "bcryptjs"
 import { signToken } from "../utils/jwt.util" // adjust path if needed
-
+import { safeDecrypt } from "../utils/crypto.util"
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { resident_id, password } = req.body
@@ -47,6 +47,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         id: user.id,
         resident_id: user.resident_id,
         role: user.role,
+        resident:{
+          fName: safeDecrypt(resident.f_name),
+          lName: safeDecrypt(resident.l_name),
+          mName: safeDecrypt(resident.m_name),
+          email: safeDecrypt(resident.email_address),
+        }
       },
     })
   } catch (err) {
