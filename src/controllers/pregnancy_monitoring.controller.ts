@@ -45,9 +45,7 @@ export const getPregnancy_monitoring = async (_req: Request, res: Response): Pro
         ...pm,
         health_record: {
           ...hr,
-          blood_type: hr.blood_type ? decrypt(hr.blood_type) : null,
-          allergies: hr.allergies ? decrypt(hr.allergies) : null,
-          chronic_conditions: hr.chronic_conditions ? decrypt(hr.chronic_conditions) : null,
+        
           resident: resident
             ? {
                 id: resident.id,

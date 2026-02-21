@@ -1,24 +1,63 @@
 // middleware/auth.middleware.ts
-import jwt from "jsonwebtoken"
-import { Request, Response, NextFunction } from "express"
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
-export const authenticate = (
-  req: Request & { user?: any },
-  res: Response,
-  next: NextFunction
-) => {
-  const token = req.headers.authorization?.split(" ")[1]
+// 🔹 Support all roles your app uses
+type Role = "admin" | "staff" | "resident" | "healthworker";
 
-  if (!token) {
-    res.status(401).json({ error: "Token missing" })
-    return
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    role: Role;
+  };
+}
+
+/**
+ * Middleware to protect routes with Access Token (Bearer)
+ */
+export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET!) as AuthRequest["user"];
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("Access token verification failed:", err);
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+};
+
+/**
+ * Route handler to refresh Access Token using HttpOnly refresh cookie
+ */
+export const refreshAccessToken = (req: Request, res: Response) => {
+  const refreshToken = req.cookies?.refresh_token;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: "Refresh token missing" });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!)
-    req.user = decoded
-    next()
-  } catch {
-    res.status(401).json({ error: "Invalid token" })
+    // ✅ Verify refresh token
+    const payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!) as { id: string; role: Role };
+
+    // ✅ Generate new access token
+    const newAccessToken = jwt.sign(
+      { id: payload.id, role: payload.role },
+      process.env.ACCESS_TOKEN_SECRET!,
+      { expiresIn: "15m" }
+    );
+
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error("Refresh token verification failed:", err);
+    res.status(401).json({ error: "Invalid or expired refresh token" });
   }
-}
+};

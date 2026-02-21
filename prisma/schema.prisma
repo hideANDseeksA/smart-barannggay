@@ -8,213 +8,224 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model purok {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String      @unique
+  residents residents[]
+}
+
+model system_setting {
+  logo_url             String?
+  web_name             String?
+  web_color            String?
+  barangay_status      String?
+  id_pattern           String?
+  residentNumber       Int     @default(0)
+  residentNumberLength Int     @default(6)
+  residentNumberType   String  @default("sequential")
+  residentPrefix       String  @default("T")
+  id                   Int     @id @default(1)
+}
+
+model residents {
+  id                     String            @id @default(uuid()) @db.Uuid
+  resident_id            String            @unique @default("")
+  f_name                 String
+  m_name                 String?
+  l_name                 String?
+  s_name                 String?
+  house_no               String?
+  b_place                String?
+  voting_status          String?
+  sector                 String?
+  remarks                String?
+  times_tamp             DateTime          @default(now())
+  email_address          String?
+  contact_no             String?
+  b_date                 DateTime?         @db.Date
+  sex                    Sex               @default(male)
+  purok_id               String?           @db.Uuid
+  blood_type             String?
+  civil_status           Civil?
+  education              E_attainment?
+  emp_status             Emp_Status?
+  h_contact_no           String?
+  h_email_address        String?
+  h_l_name               String?
+  blotter                blotter[]
+  complaints             complaints[]
+  health_records         health_records[]
+  health_referals        health_referals[]
+  notifications          notification[]
+  purok                  purok?            @relation(fields: [purok_id], references: [id])
+  handled_transactions   transaction[]     @relation("HandledTransactions")
+  requested_transactions transaction[]     @relation("RequestedTransactions")
+  user                   user?
+}
+
+model complaints {
+  id             String    @id @default(uuid()) @db.Uuid
+  resident_id    String    @db.Uuid
+  complaint_type String
+  description    String
+  status         String    @default("pending")
+  image_paths    String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now())
+  resident       residents @relation(fields: [resident_id], references: [id])
+}
+
+model blotter {
+  id          String                 @id @default(uuid()) @db.Uuid
+  status      String                 @default("pending")
+  created_at  DateTime               @default(now())
+  updated_at  DateTime               @default(now())
+  details     String?
+  file_path   String?
+  resident_id String                 @db.Uuid
+  h_resident  String?
+  embeddings  Unsupported("vector(384)")?
+  resident    residents              @relation(fields: [resident_id], references: [id])
+
+  
+}
+
+model certificates {
+  id                    String        @id @default(uuid()) @db.Uuid
+  template_name         String
+  template_price        Float?
+  template_path         String?
+  timestamp             DateTime      @default(now()) @db.Timestamp(6)
+  requestType           Boolean       @default(true)
+  template_requirements String?
+  transactions          transaction[]
+}
+
+model document_types {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String      @unique
+  description String?
+  documents   documents[]
+}
+
+model documents {
+  id               String         @id @default(uuid()) @db.Uuid
+  document_type_id String         @db.Uuid
+  title            String
+  purpose          String?
+  issued_date      DateTime?      @db.Date
+  status           String         @default("Active")
+  file_url         String?
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @default(now())
+  document_type    document_types @relation(fields: [document_type_id], references: [id])
+}
+
+model health_referals {
+  id          String    @id @default(uuid()) @db.Uuid
+  resident_id String    @db.Uuid
+  details     String
+  status      String    @default("pending")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+  resident    residents @relation(fields: [resident_id], references: [id])
+}
+
+model health_records {
+  id          String                 @id @default(uuid()) @db.Uuid
+  resident_id String                 @db.Uuid
+  created_at  DateTime               @default(now())
+  updated_at  DateTime               @default(now())
+  details     String
+  resident    residents              @relation(fields: [resident_id], references: [id])
+  pregnancy   pregnancy_monitoring[]
+}
+
+model pregnancy_monitoring {
+  id                     String          @id @default(uuid()) @db.Uuid
+  health_record_id       String?         @db.Uuid
+  pregnancy_start_date   DateTime        @db.Date
+  expected_delivery_date DateTime        @db.Date
+  current_trimester      Int?
+  last_checkup           DateTime?       @db.Date
+  created_at             DateTime        @default(now())
+  updated_at             DateTime        @default(now())
+  status                 P_status        @default(ongoing)
+  details                String?
+  health_record          health_records? @relation(fields: [health_record_id], references: [id])
+}
+
+model notification {
+  id          String    @id @default(uuid()) @db.Uuid
+  resident_id String    @db.Uuid
+  content     String?
+  mark_read   Boolean   @default(false)
+  timestamp   DateTime? @db.Time(6)
+  receiver    Role?
+  resident    residents @relation(fields: [resident_id], references: [id])
+}
+
+model transaction {
+  id               String       @id @default(uuid()) @db.Uuid
+  resident_id      String       @db.Uuid
+  certificate_id   String       @db.Uuid
+  details          String
+  status           String       @default("pending")
+  timestamp        DateTime     @default(now())
+  appointment_date DateTime?
+  handler          String?      @db.Uuid
+  certificate      certificates @relation(fields: [certificate_id], references: [id])
+  handled_by       residents?   @relation("HandledTransactions", fields: [handler], references: [id])
+  resident         residents    @relation("RequestedTransactions", fields: [resident_id], references: [id])
+}
+
+model user {
+  id          String    @id @default(uuid()) @db.Uuid
+  resident_id String    @unique @db.Uuid
+  password    String?
+  verified    Boolean   @default(false)
+  role        Role      @default(resident)
+  resident    residents @relation(fields: [resident_id], references: [id])
+}
+
 enum Role {
   resident
   staff
   healthworker
 }
 
-enum Sex{
+enum Sex {
   male
   female
+}
+
+enum Civil {
+  single
+  married
+  widow
+  seperated
+  annulled
+  co_habitation
+}
+
+enum Emp_Status {
+  student
+  employed
+  retired
+  unemployed
+  unknown
+}
+
+enum E_attainment {
+  none
+  elementary
+  highschool
+  vocational
+  college
+  postgraduate
 }
 
 enum P_status {
   ongoing
   delivered
-}
-
-model purok {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String @unique
-  residents    residents[]
-}
-
-
-
-model system_setting {
-  id                     Int     @id @default(1)
-
-  logo_url               String?
-  web_name               String?
-  web_color              String?
-  barangay_status        String?
-  id_pattern             String?
-
-  residentPrefix         String  @default("T")
-  residentNumberType     String  @default("sequential")
-  residentNumberLength   Int     @default(6)
-  residentNumber         Int     @default(0)
-}
-
-
-model residents {
-  id            String   @id @default(uuid()) @db.Uuid
-  resident_id   String   @unique  @default("")
-  f_name        String
-  m_name        String?
-  l_name        String?
-  s_name        String?
-  purok_id      String?   @db.Uuid
-  house_no      String?
-  sex           Sex @default(male)
-  b_date        DateTime? @db.Date
-  b_place       String?
-  voting_status String?
-  sector        String?
-  remarks       String?
-  times_tamp    DateTime @default(now())
-  email_address String?
-  contact_no    String?
-
-  purok purok?  @relation(fields: [purok_id], references: [id])
-  complaints          complaints[]
-  health_appointments health_appointments[]
-  health_records      health_records[]
-  notifications       notification[]
-  transactions        transaction[]
-  user                user?
-}
-
-model complaints {
-  id             String   @id @default(uuid()) @db.Uuid
-  resident_id    String   @db.Uuid
-  complaint_type String
-  description    String
-  filed_at       DateTime @default(now())
-  status         String   @default("pending")
-  image_paths    String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now())
-
-  resident residents @relation(fields: [resident_id], references: [id])
-  blotters blotter[]
-}
-
-model blotter {
-  id                      String   @id @default(uuid()) @db.Uuid
-  complaint_id            String?  @db.Uuid  
-  official_blotter_number String   @unique
-  incident_date           DateTime @db.Date
-  location                String?
-  assigned_officer        String?
-  remarks                 String?
-  status                  String   @default("ongoing")
-  image_paths             Json?
-  created_at              DateTime @default(now())
-  updated_at              DateTime @default(now())
-
-  complaint complaints? @relation(fields: [complaint_id], references: [id])
-}
-
-model certificates {
-  id             String   @id @default(uuid()) @db.Uuid
-  template_name  String
-  template_price Float?
-  template_path  String?
-  timestamp      DateTime @default(now()) @db.Timestamp
-  requestType    Boolean  @default(true)
-
-  transactions transaction[]
-}
-
-model document_types {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  description String?
-
-  documents   documents[]
-}
-
-model documents {
-  id                 String   @id @default(uuid()) @db.Uuid
-  document_type_id   String   @db.Uuid
-  title              String
-  purpose            String?
-  issued_date        DateTime? @db.Date
-  expiration_date    DateTime? @db.Date
-  status             String   @default("Active")
-  file_url           String?
-  created_at         DateTime @default(now())
-  updated_at         DateTime @default(now())
-
-  document_type document_types @relation(fields: [document_type_id], references: [id])
-}
-
-model health_appointments {
-  id               String   @id @default(uuid()) @db.Uuid
-  resident_id      String @db.Uuid
-  blood_pressure   String
-  appointment_date DateTime
-  purpose          String?
-  status           String   @default("pending")
-  created_at       DateTime @default(now())
-  updated_at       DateTime @default(now())
-
-  resident residents @relation(fields: [resident_id], references: [id])
-}
-
-model health_records {
-  id                 String   @id @default(uuid()) @db.Uuid
-  resident_id        String @db.Uuid
-  height_cm          Decimal?
-  weight_kg          Decimal?
-  blood_type         String?
-  allergies          String?
-  chronic_conditions String?
-  last_checkup       DateTime? @db.Date
-  vaccination_status Json?
-  created_at         DateTime @default(now())
-  updated_at         DateTime @default(now())
-
-  resident   residents @relation(fields: [resident_id], references: [id])
-  pregnancy  pregnancy_monitoring[]
-}
-
-model pregnancy_monitoring {
-  id                     String   @id @default(uuid()) @db.Uuid
-  health_record_id       String? @db.Uuid
-  pregnancy_start_date   DateTime @db.Date
-  expected_delivery_date DateTime @db.Date
-  current_trimester      Int?
-  complications          String?
-  checkup_notes          String?
-  last_checkup           DateTime? @db.Date
-  status                 P_status  @default(ongoing)
-  created_at             DateTime @default(now())
-  updated_at             DateTime @default(now())
-
-  health_record health_records? @relation(fields: [health_record_id], references: [id])
-}
-
-model notification {
-  id          String   @id @default(uuid()) @db.Uuid
-  resident_id String @db.Uuid
-  content     String?
-  mark_read   Boolean @default(false)
-  timestamp   DateTime? @db.Time
-
-  resident residents @relation(fields: [resident_id], references: [id])
-}
-
-model transaction {
-  id             String   @id @default(uuid()) @db.Uuid
-  resident_id    String @db.Uuid
-  certificate_id String @db.Uuid
-  details        String
-  status         String   @default("pending")
-  timestamp      DateTime @default(now())
-
-  resident    residents   @relation(fields: [resident_id], references: [id])
-  certificate certificates @relation(fields: [certificate_id], references: [id])
-}
-
-model user {
-  id          String   @id @default(uuid()) @db.Uuid
-  resident_id String @db.Uuid @unique
-  password    String?
-  verified    Boolean @default(false)
-  role        Role    @default(resident)
-
-  resident residents @relation(fields: [resident_id], references: [id])
 }

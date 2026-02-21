@@ -11,7 +11,7 @@ export const createDocuments = async (
     res: Response): Promise<void> => {
   try {
     
-    const{  document_type_id,title ,purpose ,issued_date ,expiration_date ,status} = req.body
+    const{  document_type_id,title ,purpose ,issued_date ,status} = req.body
     const file = req.file
 
     if (!file) {
@@ -30,7 +30,6 @@ export const createDocuments = async (
             title,
             purpose,
             issued_date: issued_date ? new Date(issued_date) : null,
-            expiration_date: expiration_date ? new Date(expiration_date) : null,
             status,
             file_url
         },
@@ -87,7 +86,7 @@ export const updateDocuments = async (req: Request, res: Response): Promise<void
 
 const file = req.file
 const {id } = req.params
-const { document_type_id,title ,purpose ,issued_date ,expiration_date ,status} = req.body
+const { document_type_id,title ,purpose ,issued_date  ,status} = req.body
 
 const existingDocument = await prisma.documents.findUnique({
   where: { id },
@@ -115,7 +114,6 @@ if (file) {
         title,
         purpose,
         issued_date: issued_date ? new Date(issued_date) : null,
-        expiration_date: expiration_date ? new Date(expiration_date) : null,
         status,
         file_url
       },

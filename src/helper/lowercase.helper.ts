@@ -19,3 +19,44 @@ export function lowercaseDeep<T>(obj: T): T {
 
   return obj;
 }
+export function lowercaseJson(json: string): string {
+  const parsed = JSON.parse(json);
+  const lowered = lowercaseDeep(parsed);
+  return JSON.stringify(lowered);
+}
+function capitalizeString(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function uppercaseDeep<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(uppercaseDeep) as unknown as T;
+  }
+
+  if (obj && typeof obj === "object") {
+    const newObj: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string") {
+        newObj[key] = capitalizeString(value);
+      } else if (value && typeof value === "object" && !(value instanceof Date)) {
+        newObj[key] = uppercaseDeep(value);
+      } else {
+        newObj[key] = value;
+      }
+    }
+    return newObj;
+  }
+
+  return obj;
+}
+
+
+
+export function uppercaseJson(json: string): string {
+  const parsed = JSON.parse(json);
+  const capitalized = uppercaseDeep(parsed);
+  return JSON.stringify(capitalized);
+}
+

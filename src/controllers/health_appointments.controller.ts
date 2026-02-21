@@ -4,7 +4,7 @@ import prisma from "../prisma";
 /* CREATE */
 export const createHealthAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
-    const healthAppointment = await prisma.health_appointments.create({
+    const healthAppointment = await prisma.health_referals.create({
       data: req.body,
     });
     res.status(201).json(healthAppointment);
@@ -20,7 +20,7 @@ export const createHealthAppointment = async (req: Request, res: Response): Prom
 /* READ ALL */
 export const getHealthAppointments = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const healthAppointments = await prisma.health_appointments.findMany();
+    const healthAppointments = await prisma.health_referals.findMany();
     res.json(healthAppointments);
   } catch (err) {
     if (err instanceof Error) {
@@ -34,7 +34,7 @@ export const getHealthAppointments = async (_req: Request, res: Response): Promi
 /* READ ONE */
 export const getHealthAppointmentById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const healthAppointment = await prisma.health_appointments.findUnique({
+    const healthAppointment = await prisma.health_referals.findUnique({
       where: { id: req.params.id },
     });
 
@@ -56,7 +56,7 @@ export const getHealthAppointmentById = async (req: Request, res: Response): Pro
 /* UPDATE */
 export const updateHealthAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
-    const healthAppointment = await prisma.health_appointments.update({
+    const healthAppointment = await prisma.health_referals.update({
       where: { id: req.params.id },
       data: req.body,
     });
@@ -73,7 +73,7 @@ export const updateHealthAppointment = async (req: Request, res: Response): Prom
 /* DELETE */
 export const deleteHealthAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
-    await prisma.health_appointments.delete({
+    await prisma.health_referals.delete({
       where: { id: req.params.id },
     });
     res.json({ message: "Health appointment deleted successfully" });

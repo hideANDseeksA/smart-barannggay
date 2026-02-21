@@ -10,7 +10,7 @@ export const createCertificates = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { template_name, template_price, requestType } = req.body
+    const { template_name,template_requirements, template_price, requestType } = req.body
     const file = req.file
 
     if (!file) {
@@ -27,6 +27,7 @@ export const createCertificates = async (
     const certificate = await prisma.certificates.create({
       data: {
         template_name,
+        template_requirements,
         template_price: template_price
           ? Number(template_price)
           : null,

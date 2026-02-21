@@ -22,3 +22,19 @@ export const signToken = (
 export const verifyToken = <T = any>(token: string): T => {
   return jwt.verify(token, JWT_SECRET) as T
 }
+
+
+export interface JwtPayload {
+  id: string;
+  role: "resident" | "staff" | "admin" | "healthworker";
+}
+
+export const signAccessToken = (payload: JwtPayload) =>
+  jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET!, {
+    expiresIn: "15m",
+  });
+
+export const signRefreshToken = (payload: JwtPayload) =>
+  jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET!, {
+    expiresIn: "7d",
+  });

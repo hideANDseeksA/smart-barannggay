@@ -109,6 +109,7 @@ export const getTransactionByIds = async (
       resident.l_name = resident.l_name && decrypt(resident.l_name);
       resident.b_place = resident.b_place && decrypt(resident.b_place);
       resident.contact_no = resident.contact_no && decrypt(resident.contact_no);
+      resident.house_no = resident.house_no && decrypt(resident.house_no);
       resident.email_address = resident.email_address && decrypt(resident.email_address);
     }
 

@@ -10,11 +10,11 @@ export const createComplaints = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { resident_id,complaint_type,description,filed_at,status } = req.body
+    const { resident_id,complaint_type,description,status } = req.body
     const file = req.file
 
     if (!file) {
-      res.status(400).json({ error: "Template file is required" })
+      res.status(400).json({ error: "Image is required" })
       return
     }
 
@@ -29,7 +29,6 @@ export const createComplaints = async (
             resident_id,
             complaint_type,
             description,
-            filed_at:filed_at? new Date(filed_at):filed_at,
             status,
             image_paths,
         },
@@ -79,7 +78,7 @@ export const updatecomplaints = async (
 ): Promise<void> => {
   try {
     const { id } = req.params
-     const { resident_id,complaint_type,description,filed_at,status} = req.body
+     const { resident_id,complaint_type,description,status} = req.body
     const file = req.file
 
     // 1️⃣ Find existing complaints
@@ -110,7 +109,6 @@ export const updatecomplaints = async (
         resident_id,
         complaint_type,
         description,
-        filed_at:filed_at? new Date(filed_at):filed_at,
         status,
         image_paths,
       },

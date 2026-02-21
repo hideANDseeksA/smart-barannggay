@@ -12,7 +12,7 @@ import { upload } from "../middleware/upload"
 import { rbac } from "../middleware/rbac";
 import { authenticate } from "../middleware/auth.middleware";
 const router = express.Router();
-const SENSITIVE_FIELDS = ["template_name"];
+const SENSITIVE_FIELDS = ["template_name","template_requirements"];
 
 /**
  * @swagger
@@ -169,8 +169,8 @@ router.get(
  */
 
 router.get("/", decryptFields(SENSITIVE_FIELDS), 
-  // authenticate,
-  // rbac("admin", "staff", "resident"),
+  authenticate,
+  rbac("admin", "staff", "resident"),
   getCertificates);
 
 
