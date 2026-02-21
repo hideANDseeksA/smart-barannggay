@@ -1,9 +1,15 @@
 # =========================
 # 1️⃣ Build stage
 # =========================
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
+
+# Install OS deps needed for Prisma + ONNX
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first (better caching)
 COPY package*.json ./
@@ -28,9 +34,15 @@ RUN npm run build
 # =========================
 # 2️⃣ Production stage
 # =========================
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 WORKDIR /app
+
+# Install runtime OS deps (required)
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy only what we need from builder
 COPY --from=builder /app/node_modules ./node_modules
@@ -38,11 +50,11 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
+# Environment
+ENV NODE_ENV=production
+
 # Expose API port
 EXPOSE 3000
-
-# Prisma needs this at runtime
-ENV NODE_ENV=production
 
 # Start server
 CMD ["node", "dist/server.js"]
