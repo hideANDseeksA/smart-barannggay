@@ -45,12 +45,17 @@ export const refreshAccessToken = (req: Request, res: Response) => {
   }
 
   try {
-    // ✅ Verify refresh token
-    const payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!) as { id: string; role: Role };
+    // ✅ Decode full refresh payload
+    const payload = jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET!
+    ) as any;
 
-    // ✅ Generate new access token
+    // ❗ Remove JWT internal fields before re-signing
+    const { iat, exp, ...cleanPayload } = payload;
+
     const newAccessToken = jwt.sign(
-      { id: payload.id, role: payload.role },
+      cleanPayload,
       process.env.ACCESS_TOKEN_SECRET!,
       { expiresIn: "15m" }
     );

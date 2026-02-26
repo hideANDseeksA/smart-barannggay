@@ -50,7 +50,7 @@ model residents {
   education              E_attainment?
   emp_status             Emp_Status?
   h_contact_no           String?
-  h_email_address        String?
+  h_email_address        String?          @unique
   h_l_name               String?
   blotter                blotter[]
   complaints             complaints[]
@@ -97,6 +97,7 @@ model certificates {
   template_path         String?
   timestamp             DateTime      @default(now()) @db.Timestamp(6)
   requestType           Boolean       @default(true)
+  public_view           Boolean       @default(false)
   template_requirements String?
   transactions          transaction[]
 }
@@ -115,6 +116,8 @@ model documents {
   purpose          String?
   issued_date      DateTime?      @db.Date
   status           String         @default("Active")
+  pin              Boolean        @default(false)
+  is_public        Boolean        @default(false)
   file_url         String?
   created_at       DateTime       @default(now())
   updated_at       DateTime       @default(now())

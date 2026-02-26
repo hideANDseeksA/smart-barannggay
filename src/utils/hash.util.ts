@@ -1,14 +1,29 @@
-import bcrypt from "bcryptjs"
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
-const SALT_ROUNDS = 12
+const SALT_ROUNDS = 12;
 
-export const hashData = async (data: string): Promise<string> => {
-  return bcrypt.hash(data, SALT_ROUNDS)
-}
+/**
+ * Hash password using bcrypt (non-deterministic)
+ */
+export const hashPassword = async (password: string): Promise<string> => {
+  return bcrypt.hash(password, SALT_ROUNDS);
+};
 
+/**
+ * Compare plain password with hashed password
+ */
 export const compareHash = async (
   plain: string,
   hashed: string
 ): Promise<boolean> => {
-  return bcrypt.compare(plain, hashed)
-}
+  return bcrypt.compare(plain, hashed);
+};
+
+/**
+ * Hash email (deterministic) using SHA256
+ * This is safe for storing searchable email hashes
+ */
+export const hashEmail = (email: string): string => {
+  return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex");
+};

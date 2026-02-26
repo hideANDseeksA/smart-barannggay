@@ -2,7 +2,10 @@ import express from "express";
 import {
   createBlotter,
   getbBlotter,
-  searchBlotters
+  searchBlotters,
+  getBlotterById,
+  updateBlotter,
+  deleteBlotter,
 
 } from "../controllers/blotter.controller";
 import { encryptFields } from "../middleware/encrypt.middleware";
@@ -30,7 +33,25 @@ router.get(
 
 
 )
+router.get(
+  "/:id",
+  decryptFields(SENSITIVE_FIELDS),
+  getBlotterById
+)
 
+
+router.put(
+    "/:id",
+    upload.single("file"),
+    encryptFields(SENSITIVE_FIELDS),
+    updateBlotter
+)
+
+
+router.delete(
+    "/:id",
+    deleteBlotter
+)
 router.post("/search",decryptFields(SENSITIVE_FIELDS), searchBlotters);
 
 

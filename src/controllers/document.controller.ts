@@ -79,6 +79,49 @@ export const getDocuments = async (_req: Request, res: Response): Promise<void> 
 }
 
 
+export const getResidentDocuments = async (_req: Request, res: Response): Promise<void> => {
+  try {
+      const documents = await prisma.documents.findMany({
+      where: {
+        is_public: true,
+      },
+      select: {
+        id: true,
+        document_type: {
+          select: {
+            name: true,
+          },
+        },
+        file_url: true,
+        title: true,
+        purpose: true,
+        issued_date: true,
+      },
+    })
+
+
+   
+
+    const result = await Promise.all(
+        documents.map(async doc => ({
+            ...doc,
+            file_url: doc.file_url ? await generateSignedUrl(doc.file_url, 60 * 5) : null,
+            document_type: {
+              name: decrypt(doc.document_type.name)
+            }
+        }))
+    )
+
+    res.status(200).json(result)
+  } catch (err) {
+    if (err instanceof Error) {
+      res.status(500).json({ error: err.message })
+    } else {
+      res.status(500).json({ error: "Unknown error occurred" })
+    }
+  }
+}
+
 
 /* UPDATE */
 export const updateDocuments = async (req: Request, res: Response): Promise<void> => {

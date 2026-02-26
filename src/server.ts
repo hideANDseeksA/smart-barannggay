@@ -16,9 +16,15 @@ import BlotterRoutes from "./routes/blotter.routes";
 import Purok from "./routes/purok.routes";
 import authRoutes from "./routes/auth.routes";
 import swaggerUi from "swagger-ui-express";
+import GeneratorRoute from "./routes/generator.route";
 import swaggerJsDoc from "swagger-jsdoc";
 import path from "path";
 import cookieParser from "cookie-parser";
+import NotificationRoutes from "./routes/notification.routes";
+import AnalyticsRoutes from "./routes/analytics.routes";
+import { initSocket } from "./socket/index";
+import http from "http"
+
 
 dotenv.config();
 
@@ -32,7 +38,10 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+const server = http.createServer(app)
 
+// initialize socket
+initSocket(server)
 // Swagger setup
 
 const swaggerOptions = {
@@ -82,10 +91,12 @@ app.use("/api/health_appointments", HealthAppointmentRoutes);
 app.use("/api/pregnancy-monitoring", PregnancyMonitoringRoutes);
 app.use("/api/system", System_Setting);
 app.use("/api/blotter",BlotterRoutes);
-
+app.use("/api/generator", GeneratorRoute);
+app.use("/api/notifications", NotificationRoutes);
+app.use("/api/analytics", AnalyticsRoutes);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Swagger UI available at http://localhost:${PORT}/api/docs`);
 });

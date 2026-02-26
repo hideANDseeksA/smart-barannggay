@@ -3,8 +3,10 @@ import prisma from "../prisma"
 import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import path from "path"
 import { generateCertificate } from "../utils/certificates/helper.generateCertificate"
-import { decrypt, safeDecrypt } from "../utils/crypto.util"
+import { safeDecrypt, } from "../utils/crypto.util"
 import { getDayWithSuffix } from "../helper/date.helper"
+import { request } from "http"
+import { connect } from "http2"
 
 /* CREATE */
 export const createTransaction = async (req: Request, res: Response): Promise<void> => {
@@ -23,50 +25,59 @@ export const createTransaction = async (req: Request, res: Response): Promise<vo
 }
 
 /* READ ALL */
-export const getTransactions = async (_req: Request, res: Response): Promise<void> => {
+export const getOnlineRequest = async (_req: Request, res: Response): Promise<void> => {
   try {
     const transactions = await prisma.transaction.findMany({
+      where: {
+        certificate: {
+          is: {
+            requestType: true,
+          },
+        },
+        status: { in: ["pending", "on process","ready to claim"] }
+      },
       include: {
         certificate: {
           select: {
             template_name: true,
-            template_price: true
-          }
+            template_price: true,
+          },
         },
-        resident:{
-          select:{
-            f_name:true,
-            m_name:true,
-            l_name:true,
-            email_address:true,
-            resident_id:true,
-            purok:{
-              select:{
-                name:true
-              }
-            }
-            
-          }
-          
-        }
-      }
+        resident: {
+          select: {
+            f_name: true,
+            m_name: true,
+            l_name: true,
+            email_address: true,
+            resident_id: true,
+            purok: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
     })
+
 
     transactions.forEach(tx => {
       if (tx.certificate) {
-        tx.certificate.template_name = decrypt(tx.certificate.template_name);
+        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
       }
 
-      if(tx.resident){
-        tx.resident.f_name = tx.resident.f_name && decrypt(tx.resident.f_name);
-        tx.resident.m_name = tx.resident.m_name && decrypt(tx.resident.m_name);
-        tx.resident.l_name = tx.resident.l_name && decrypt(tx.resident.l_name);
-        tx.resident.email_address = tx.resident.email_address && decrypt(tx.resident.email_address);
+      if (tx.resident) {
+        tx.resident.f_name = tx.resident.f_name && safeDecrypt(tx.resident.f_name);
+        tx.resident.m_name = tx.resident.m_name && safeDecrypt(tx.resident.m_name);
+        tx.resident.l_name = tx.resident.l_name && safeDecrypt(tx.resident.l_name);
+        tx.resident.email_address = tx.resident.email_address && safeDecrypt(tx.resident.email_address);
 
       }
     });
 
-    
+
+
+
 
     res.status(200).json(transactions);
   } catch (err) {
@@ -77,6 +88,147 @@ export const getTransactions = async (_req: Request, res: Response): Promise<voi
     }
   }
 };
+
+
+
+/* READ ALL */
+export const getAppointment = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        certificate: {
+          is: {
+            requestType: false,
+          },
+        },
+        status: { in: ["pending", "approved"] }
+      },
+      include: {
+        certificate: {
+          select: {
+            template_name: true,
+            template_price: true,
+          },
+        },
+        resident: {
+          select: {
+            f_name: true,
+            m_name: true,
+            l_name: true,
+            email_address: true,
+            resident_id: true,
+            purok: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+
+    transactions.forEach(tx => {
+      if (tx.certificate) {
+        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
+      }
+
+      if (tx.resident) {
+        tx.resident.f_name = tx.resident.f_name && safeDecrypt(tx.resident.f_name);
+        tx.resident.m_name = tx.resident.m_name && safeDecrypt(tx.resident.m_name);
+        tx.resident.l_name = tx.resident.l_name && safeDecrypt(tx.resident.l_name);
+        tx.resident.email_address = tx.resident.email_address && safeDecrypt(tx.resident.email_address);
+
+      }
+    });
+
+
+
+
+
+    res.status(200).json(transactions);
+  } catch (err) {
+    if (err instanceof Error) {
+      res.status(500).json({ error: err.message })
+    } else {
+      res.status(500).json({ error: "Unknown error occurred" })
+    }
+  }
+};
+
+
+
+
+
+export const getHistory = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        status: { in: ["completed", "declined","cancelled","expired"] }
+      },
+      include: {
+        certificate: {
+          select: {
+            template_name: true,
+            template_price: true,
+          },
+        },
+        resident: {
+          select: {
+            f_name: true,
+            m_name: true,
+            l_name: true,
+            email_address: true,
+            resident_id: true,
+            purok: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        handled_by: {
+          select: {
+            f_name: true,
+            m_name: true,
+            l_name: true,
+          },
+        },
+      },
+    })
+    transactions.forEach(tx => {
+      if (tx.certificate) {
+        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
+      }
+
+      if (tx.resident) {
+        tx.resident.f_name = tx.resident.f_name && safeDecrypt(tx.resident.f_name);
+        tx.resident.m_name = tx.resident.m_name && safeDecrypt(tx.resident.m_name);
+        tx.resident.l_name = tx.resident.l_name && safeDecrypt(tx.resident.l_name);
+        tx.resident.email_address = tx.resident.email_address && safeDecrypt(tx.resident.email_address);
+      }
+
+      if (tx.handled_by) {
+        tx.handled_by.f_name = tx.handled_by.f_name && safeDecrypt(tx.handled_by.f_name);
+        tx.handled_by.m_name = tx.handled_by.m_name && safeDecrypt(tx.handled_by.m_name);
+        tx.handled_by.l_name = tx.handled_by.l_name && safeDecrypt(tx.handled_by.l_name);
+      }
+    });
+
+
+
+
+
+    res.status(200).json(transactions);
+  } catch (err) {
+    if (err instanceof Error) {
+      res.status(500).json({ error: err.message })
+    } else {
+      res.status(500).json({ error: "Unknown error occurred" })
+    }
+  }
+};
+
 
 export const getTransactionByIds = async (
   req: Request,
@@ -104,90 +256,94 @@ export const getTransactionByIds = async (
 
     const resident = data.resident;
     if (resident) {
-      resident.f_name = resident.f_name && decrypt(resident.f_name);
-      resident.m_name = resident.m_name && decrypt(resident.m_name);
-      resident.l_name = resident.l_name && decrypt(resident.l_name);
-      resident.b_place = resident.b_place && decrypt(resident.b_place);
-      resident.contact_no = resident.contact_no && decrypt(resident.contact_no);
-      resident.house_no = resident.house_no && decrypt(resident.house_no);
-      resident.email_address = resident.email_address && decrypt(resident.email_address);
+      resident.f_name = resident.f_name && safeDecrypt(resident.f_name);
+      resident.m_name = resident.m_name && safeDecrypt(resident.m_name);
+      resident.l_name = resident.l_name && safeDecrypt(resident.l_name);
+      resident.s_name = resident.s_name && safeDecrypt(resident.s_name);
+      resident.civil_status = resident.civil_status && safeDecrypt(resident.civil_status);
+      
+      resident.b_place = resident.b_place && safeDecrypt(resident.b_place);
+      resident.contact_no = resident.contact_no && safeDecrypt(resident.contact_no);
+      resident.house_no = resident.house_no && safeDecrypt(resident.house_no);
+      resident.email_address = resident.email_address && safeDecrypt(resident.email_address);
     }
 
-   
-data.latest_documents?.forEach((doc: any) => {
 
-  // 🔐 Decrypt title
-  if (doc.title) {
-    const decrypted = decrypt(doc.title);
-    try {
-      doc.title = JSON.parse(decrypted);
-    } catch {
-      doc.title = decrypted;
-    }
-  }
- 
-  if (doc.purpose) {
-    const decrypted = decrypt(doc.purpose);
-    try {
-      doc.purpose = JSON.parse(decrypted);
-    } catch {
-      doc.purpose = decrypted;
-    }
-  }
+    data.latest_documents?.forEach((doc: any) => {
 
-  // 🔐 Decrypt document type fields
-  if (doc.document_type) {
-
-    if (doc.document_type.name) {
-      const decrypted = decrypt(doc.document_type.name);
-      try {
-        doc.document_type.name = JSON.parse(decrypted);
-      } catch {
-        doc.document_type.name = decrypted;
+      // 🔐 safeDecrypt title
+      if (doc.title) {
+        const safeDecrypted = safeDecrypt(doc.title);
+        try {
+          doc.title = JSON.parse(safeDecrypted);
+        } catch {
+          doc.title = safeDecrypted;
+        }
       }
-    }
 
-    if (doc.document_type.description) {
-      const decrypted = decrypt(doc.document_type.description);
-      try {
-        doc.document_type.description = JSON.parse(decrypted);
-      } catch {
-        doc.document_type.description = decrypted;
+      if (doc.purpose) {
+        const safeDecrypted = safeDecrypt(doc.purpose);
+        try {
+          doc.purpose = JSON.parse(safeDecrypted);
+        } catch {
+          doc.purpose = safeDecrypted;
+        }
       }
+
+      // 🔐 safeDecrypt document type fields
+      if (doc.document_type) {
+
+        if (doc.document_type.name) {
+          const safeDecrypted = safeDecrypt(doc.document_type.name);
+          try {
+            doc.document_type.name = JSON.parse(safeDecrypted);
+          } catch {
+            doc.document_type.name = safeDecrypted;
+          }
+        }
+
+        if (doc.document_type.description) {
+          const safeDecrypted = safeDecrypt(doc.document_type.description);
+          try {
+            doc.document_type.description = JSON.parse(safeDecrypted);
+          } catch {
+            doc.document_type.description = safeDecrypted;
+          }
+        }
+
+      }
+
+    });
+
+    for (const doc of data.latest_documents || []) {
+
+      if (doc.file_url) {
+        doc.file_url = await generateSignedUrl(doc.file_url, 60 * 5);
+      }
+
     }
-
-  }
-
-});
-
-for (const doc of data.latest_documents || []) {
-
-  if (doc.file_url) {
-    doc.file_url = await generateSignedUrl(doc.file_url, 60 * 5);
-  }
-
-}
 
     data.latest_transactions?.forEach((tx: any) => {
 
       if (tx.details) {
-        const decrypted = decrypt(tx.details);
+        const safeDecrypted = safeDecrypt(tx.details);
         try {
-          tx.details = JSON.parse(decrypted);
+          tx.details = JSON.parse(safeDecrypted);
         } catch {
-          tx.details = decrypted;
+          tx.details = safeDecrypted;
         }
       }
 
 
       if (tx.certificate?.template_name) {
-        tx.certificate.template_name = decrypt(tx.certificate.template_name);
+        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
       }
     });
 
 
     res.status(200).json(data);
   } catch (err) {
+    console.error(err);
     res.status(500).json({
       error: err instanceof Error ? err.message : "Unknown error occurred",
     });
@@ -222,7 +378,7 @@ export const getTransactionById = async (
 
     transaction.forEach(tx => {
       if (tx.certificate) {
-        tx.certificate.template_name = decrypt(tx.certificate.template_name);
+        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
       }
     });
 
@@ -238,19 +394,33 @@ export const getTransactionById = async (
 /* UPDATE */
 export const updateTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { appointment_date, status, handled_by_id } = req.body;
+
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },
-      data: req.body,
-    })
-    res.json(transaction)
+   data: {
+  status,
+  ...(appointment_date && {
+    appointment_date: new Date(appointment_date),
+  }),
+  ...(handled_by_id && {
+    handler: handled_by_id,
+  }),
+},
+
+    });
+
+    res.json(transaction);
   } catch (err) {
+    console.error(err);
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
+
 
 /* DELETE */
 export const deleteTransaction = async (req: Request, res: Response): Promise<void> => {
@@ -268,6 +438,8 @@ export const deleteTransaction = async (req: Request, res: Response): Promise<vo
     }
   }
 }
+
+
 
 export const generateTransactionCertificate = async (
   req: Request,
@@ -300,11 +472,11 @@ export const generateTransactionCertificate = async (
       return
     }
 
-    // 🔓 Decrypt + parse JSON
+    // 🔓 safeDecrypt + parse JSON
     let certificateData: Record<string, string>
     try {
-      const decrypted = decrypt(transaction.details)
-      certificateData = JSON.parse(decrypted)
+      const safeDecrypted = safeDecrypt(transaction.details)
+      certificateData = JSON.parse(safeDecrypted)
       const now = new Date()
       const dayth = getDayWithSuffix(now.getDate())
       const month = now.toLocaleString("en-US", { month: "long" })
@@ -350,6 +522,158 @@ export const generateTransactionCertificate = async (
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Certificate generation failed",
+    })
+  }
+}
+
+
+export const createAndGenerateCertificate = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { certificate_id, resident_id, details } = req.body
+
+    if (!certificate_id || !resident_id || !details) {
+      res.status(400).json({ error: "certificate_id, resident_id, and details are required" })
+      return
+    }
+
+    // 1️⃣ Create transaction
+    const transaction = await prisma.transaction.create({
+      data: {
+        certificate_id,
+        resident_id,
+        details: JSON.stringify(details), // encrypt later if needed
+        status: "pending",
+      },
+      include: {
+        certificate: { select: { template_path: true } },
+      },
+    })
+
+    if (!transaction.certificate?.template_path) {
+      res.status(400).json({ error: "Template not configured for this certificate" })
+      return
+    }
+
+    // 2️⃣ Prepare certificate data
+    let certificateData: Record<string, any> = details
+
+    const now = new Date()
+    const dayth = getDayWithSuffix(now.getDate())
+    const month = now.toLocaleString("en-US", { month: "long" })
+    const year = now.getFullYear()
+
+    certificateData.issued = `${dayth} day of ${month} ${year}`
+
+    // 3️⃣ Generate template URL
+    const templateUrl = await generateSignedUrl(transaction.certificate.template_path, 60 * 5)
+
+    if (!templateUrl) {
+      res.status(500).json({ error: "Failed to generate template URL" })
+      return
+    }
+
+    // 4️⃣ Generate DOCX buffer
+    const buffer = await generateCertificate(templateUrl, certificateData)
+
+    // 5️⃣ Update transaction status to completed
+    prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { status: "completed" },
+    }).catch(console.error)
+
+    // 6️⃣ Send buffer for download
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="certificate-${transaction.id}.docx"`
+    )
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    res.send(buffer)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to create transaction and generate certificate",
+    })
+  }
+}
+
+
+export const updateAndGenerateCertificate = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params
+    const { details, certificate_id, resident_id } = req.body
+
+    if (!id) {
+      res.status(400).json({ error: "Transaction id is required" })
+      return
+    }
+
+    // 1️⃣ Update transaction
+    const transaction = await prisma.transaction.update({
+      where: { id },
+      data: {
+        certificate_id,
+        resident_id,
+        details: details ? JSON.stringify(details) : undefined, // update only if provided
+        status: "pending",
+      },
+      include: {
+        certificate: { select: { template_path: true } },
+      },
+    })
+
+    if (!transaction.certificate?.template_path) {
+      res.status(400).json({ error: "Template not configured for this certificate" })
+      return
+    }
+
+    // 2️⃣ Prepare certificate data
+    const certificateData: Record<string, any> = details || {}
+    const now = new Date()
+    const dayth = getDayWithSuffix(now.getDate())
+    const month = now.toLocaleString("en-US", { month: "long" })
+    const year = now.getFullYear()
+    certificateData.issued = `${dayth} day of ${month} ${year}`
+
+    // 3️⃣ Generate template URL
+    const templateUrl = await generateSignedUrl(transaction.certificate.template_path, 60 * 5)
+    if (!templateUrl) {
+      res.status(500).json({ error: "Failed to generate template URL" })
+      return
+    }
+
+    // 4️⃣ Generate DOCX buffer
+    const buffer = await generateCertificate(templateUrl, certificateData)
+
+    // 5️⃣ Update transaction status to completed
+    prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { status: "completed" },
+    }).catch(console.error)
+
+    // 6️⃣ Send buffer for download
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="certificate-${transaction.id}.docx"`
+    )
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    res.send(buffer)
+
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to update transaction and generate certificate",
     })
   }
 }

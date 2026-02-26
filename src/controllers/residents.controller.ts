@@ -1,7 +1,7 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
 import { handlePrismaError } from "../helper/prisma.helper"
-import { decryptAll } from "../utils/crypto.util"
+import { decryptAll, safeDecrypt } from "../utils/crypto.util"
 import { calculateAge } from "../helper/agecalculator.helper"
 import { Prisma } from "@prisma/client"
 import csv from "csv-parser";
@@ -9,6 +9,7 @@ import { Readable } from "stream";
 import { csvToResidentBulkMapper } from "../utils/csvMapper";
 import { generateBulkResidentIds } from "../utils/bulkResidentIdGenerator";
 import { lowercaseDeep } from "../helper/lowercase.helper"
+import { hashEmail } from "../utils/hash.util"
 
 const BATCH_SIZE = 500;
 /* CREATE */
@@ -17,17 +18,23 @@ export const createResident = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Convert b_date to full ISO string if present
+
+    // Await hashing for h_email_address
+    const h_email_address = req.body.email_address
+      ?  hashEmail(safeDecrypt(req.body.email_address.toLowerCase()))
+      : null;
+
+    // Prepare data object
     const data = lowercaseDeep({
       ...req.body,
       b_date: req.body.b_date ? new Date(req.body.b_date).toISOString() : null,
+      h_email_address,
     });
 
-    // Prisma middleware will auto-generate resident_id
-    const resident = await prisma.residents.create({
-      data,
-    });
 
+
+    // Insert into DB
+    const resident = await prisma.residents.create({ data });
     res.status(201).json(resident);
   } catch (err) {
     handlePrismaError(err, res);
@@ -207,9 +214,25 @@ export const getResidentById = async (req: Request, res: Response): Promise<void
 /* UPDATE */
 export const updateResident = async (req: Request, res: Response): Promise<void> => {
   try {
+
+
+ 
+    // Await hashing for h_email_address
+    const h_email_address = req.body.email_address
+      ?  hashEmail(safeDecrypt(req.body.email_address.toLowerCase()))
+      : null;
+
+
+    
+    const data = lowercaseDeep({
+      ...req.body,
+      b_date: req.body.b_date ? new Date(req.body.b_date).toISOString() : null,
+      h_email_address,
+    });
+
     const resident = await prisma.residents.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: data,
     })
     res.json(resident)
   } catch (err) {

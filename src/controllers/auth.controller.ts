@@ -5,14 +5,17 @@ import {
   signAccessToken,
   signRefreshToken,
 } from "../utils/jwt.util";
-import { safeDecrypt } from "../utils/crypto.util";
+import { hashEmail } from "../utils/hash.util";
+import { decryptAll } from "../utils/crypto.util";
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resident_id, password } = req.body;
+    const { email_address, password } = req.body;
+
+    const hashedEmail = hashEmail(email_address.toLowerCase());
 
     const resident = await prisma.residents.findUnique({
-      where: { resident_id },
+      where: { h_email_address: hashedEmail },
     });
 
     if (!resident) {
@@ -40,12 +43,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ✅ TWO TOKENS, TWO PURPOSES
+
     const payload = {
       id: user.id,
       role: user.role,
+      data:{
+      resident_name: decryptAll(resident.f_name) + " " + decryptAll(resident.l_name),
+      resident_email: email_address.toLowerCase(),
+      resident_sex: resident.sex,
+      },
+      resident_id: user.resident_id,
     };
 
+
+   
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
@@ -61,17 +72,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // ✅ Access token returned in JSON
     res.json({
       accessToken,
-      user: {
-        id: user.id,
-        resident_id: user.resident_id,
-        role: user.role,
-        resident: {
-          fName: safeDecrypt(resident.f_name),
-          lName: safeDecrypt(resident.l_name),
-          mName: safeDecrypt(resident.m_name),
-          email: safeDecrypt(resident.email_address),
-        },
-      },
     });
   } catch (err) {
     console.error(err);

@@ -1,8 +1,10 @@
 import express from "express"
 import {
   createTransaction,
-  getTransactions,
+  getAppointment,
+  getOnlineRequest,
   getTransactionById,
+  getHistory,
   updateTransaction,
   deleteTransaction,
     generateTransactionCertificate,
@@ -50,6 +52,12 @@ router.post(
   decryptFields(SENSITIVE_FIELDS),
   generateTransactionCertificate
 )
+
+
+
+
+
+
 /**
  * @swagger
  * /api/transactions:
@@ -94,7 +102,9 @@ router.post(
   createTransaction
 );
 
+router.get("/appointment-test", decryptFields(SENSITIVE_FIELDS), getAppointment)
 
+router.get("/history", decryptFields(SENSITIVE_FIELDS), getHistory)
 /**
  * @swagger
  * /api/transactions:
@@ -105,7 +115,9 @@ router.post(
  *       200:
  *         description: List of transactions
  */
-router.get("/", decryptFields(SENSITIVE_FIELDS), getTransactions)
+router.get("/", decryptFields(SENSITIVE_FIELDS), getOnlineRequest)
+
+
 
 /**
  * @swagger

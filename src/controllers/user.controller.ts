@@ -1,16 +1,18 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
-import {hashData} from "../utils/hash.util";
+import {hashEmail,hashPassword} from "../utils/hash.util";
 import { decryptAll } from "../utils/crypto.util"
 /**
  * Create user (Admin only)
  */
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resident_id, password, role } = req.body
+    const { email_address, password ,role } = req.body
+
+    const hashedEmail = hashEmail(email_address)
 
     const resident = await prisma.residents.findUnique({
-      where: { resident_id: resident_id },
+      where: { h_email_address: hashedEmail },
     })
 
     if (!resident) {
@@ -18,29 +20,29 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       return
     }
 
-    if (!resident_id || !password) {
-      res.status(400).json({ error: "resident_id and password are required" })
+    if (!email_address || !password) {
+      res.status(400).json({ error: "email_address and password are required" })
       return
     }
 
     // Hash password
-    const hashedPassword = await hashData(password)
+    const hashedPassword = await hashPassword(password)
 
-    const user = await prisma.user.create({
+     await prisma.user.create({
       data: {
         resident_id:resident.id,
         password: hashedPassword,
-        role,
+        role: role || "resident",
       },
       select: {
         id: true,
         resident_id: true,
         role: true,
         verified: true,
-      }, // ❌ never return password
+      }, 
     })
 
-    res.status(201).json(user)
+    res.status(201).json("User created successfully")
   } catch (err: any) {
     console.error(err)
 

@@ -4,6 +4,7 @@ import {
   getDocuments,
   updateDocuments,
   deleteDocuments,
+  getResidentDocuments
 } from "../controllers/document.controller";
 
 import { encryptFields } from "../middleware/encrypt.middleware";
@@ -76,6 +77,8 @@ router.post("/", upload.single("file"), encryptFields(SENSITIVE_FIELDS), createD
  *         description: List of Documents
  */
 router.get("/", decryptFields(SENSITIVE_FIELDS), getDocuments);
+
+router.get("/resident", decryptFields(SENSITIVE_FIELDS), getResidentDocuments);
 
 /**
  * @swagger

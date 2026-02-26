@@ -4,6 +4,7 @@ import {
   getCertificates,
   updateCertificates,
   deleteCertificates,
+  getResidentCertificates,
 } from "../controllers/certificates.controller";
 import { getCertificateForm } from "../controllers/certficate_generator_form.controller";
 import { encryptFields } from "../middleware/encrypt.middleware";
@@ -172,6 +173,10 @@ router.get("/", decryptFields(SENSITIVE_FIELDS),
   authenticate,
   rbac("admin", "staff", "resident"),
   getCertificates);
+
+
+
+router.get("/resident", decryptFields(SENSITIVE_FIELDS), getResidentCertificates);
 
 
 /**

@@ -74,6 +74,35 @@ export const getCertificates = async (
   }
 }
 
+export const getResidentCertificates = async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const certificates = await prisma.certificates.findMany({
+      where: { public_view: true },
+    })
+
+    const result = await Promise.all(
+      certificates.map(async cert => ({
+        id: cert.id,
+        template_name: cert.template_name,
+        template_requirements: cert.template_requirements,
+        template_price: cert.template_price,
+        requestType: cert.requestType,
+
+      }))
+    )
+
+    res.json(result)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    })
+  }
+}
+
 
 
 /* UPDATE */
@@ -83,7 +112,7 @@ export const updateCertificates = async (
 ): Promise<void> => {
   try {
     const { id } = req.params
-    const { template_name, template_price, requestType } = req.body
+    const { template_name, template_price, requestType, public_view } = req.body
     const file = req.file
 
     // 1️⃣ Find existing certificate
@@ -120,6 +149,10 @@ export const updateCertificates = async (
           requestType === undefined
             ? existing.requestType
             : requestType === "true" || requestType === true,
+        public_view:
+          public_view === undefined
+            ? existing.public_view
+            : public_view === "true" || public_view === true,
       },
     })
 
