@@ -2,7 +2,8 @@ import express from "express"
 import {
   createResident,
   getResidents,
-  getResidentById,
+  getBDACResidents,
+  getArchiveResidents,
   updateResident,
   deleteResident,
   createResidentsFromCSV
@@ -112,7 +113,12 @@ router.get("/", decryptFields(SENSITIVE_FIELDS), getResidents)
  *       404:
  *         description: Resident not found
  */
-router.get("/:id", decryptFields(SENSITIVE_FIELDS), getResidentById)
+
+
+router.get("/bdac", decryptFields(SENSITIVE_FIELDS), getBDACResidents)
+
+
+router.get("/archive", decryptFields(SENSITIVE_FIELDS), getArchiveResidents)
 
 /**
  * @swagger

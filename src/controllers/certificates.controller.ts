@@ -4,6 +4,7 @@ import { uploadToSupabase } from "../utils/supabaseUpload.util"
 import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import { updateSupabaseFile } from "../utils/supabaseUpdate.util"
 import { deleteFromSupabase } from "../utils/supabaseDelete.util"
+import { timeStamp } from "console"
 
 export const createCertificates = async (
   req: Request,
@@ -90,6 +91,8 @@ export const getResidentCertificates = async (
         template_requirements: cert.template_requirements,
         template_price: cert.template_price,
         requestType: cert.requestType,
+        timestamp: cert.timestamp,
+        
 
       }))
     )

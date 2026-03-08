@@ -146,8 +146,149 @@ export const createResidentsFromCSV = async (
     res.status(500).json({ message: "Internal server error" })
   }
 };
+
 /* READ ALL */
 export const getResidents = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.max(Number(req.query.limit) || 50, 1);
+
+    const skip = (page - 1) * limit;
+
+   const [
+  residents,
+  total,
+  employmentCounts,
+  registeredCount,
+] = await Promise.all([
+  prisma.residents.findMany({
+    skip,
+    take: limit,
+    include: {
+      purok: {
+        select: { name: true },
+      },
+    },
+  }),
+
+  prisma.residents.count(),
+
+  prisma.residents.groupBy({
+    by: ["emp_status"],
+    _count: { emp_status: true },
+  }),
+
+  prisma.residents.groupBy({
+    by: ["voting_status"],
+    _count: { voting_status: true },
+  }),
+]);
+
+// Map purok counts manually
+const purokCountSummary: Record<string, number> = {};
+residents.forEach((resident: any) => {
+  const purokName = resident.purok?.name || "Unknown";
+  purokCountSummary[purokName] = (purokCountSummary[purokName] || 0) + 1;
+});
+
+// Decrypt + add age
+const decryptedResidents = decryptAll(residents);
+const residentsWithAge = decryptedResidents.map((resident: any) => ({
+  ...resident,
+  age: calculateAge(resident.b_date),
+}));
+
+// Employment summary
+const empStatusSummary = employmentCounts.reduce(
+  (acc: any, curr: any) => {
+    acc[curr.emp_status] = curr._count.emp_status;
+    return acc;
+  },
+  {}
+);
+
+// Voting summary
+const votingStatusSummary = registeredCount.reduce(
+  (acc: any, curr: any) => {
+    acc[curr.voting_status] = curr._count.voting_status;
+    return acc;
+  },
+  {}
+);
+
+res.json({
+  residents: residentsWithAge,
+  meta: {
+    page,
+    limit,
+    total,
+    registeredCount: votingStatusSummary,
+    employmentSummary: empStatusSummary,
+    purokCounts: purokCountSummary, // now keyed by purok name
+    totalPages: Math.ceil(total / limit),
+  },
+});
+  } catch (err) {
+    handlePrismaError(err, res);
+  }
+};
+
+
+export const getBDACResidents = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1)
+    const limit = Math.max(Number(req.query.limit) || 50, 1)
+
+    const skip = (page - 1) * limit
+
+    const [residents, total, registeredCount] = await Promise.all([
+      prisma.residents.findMany({
+        where: {
+          remarks: "bdac",
+        },
+        skip,
+        take: limit,
+        include : {
+          purok: {
+            select: {
+              name: true
+            }
+          },
+      }}),
+      prisma.residents.count({where: {remarks: "bdac"}}),
+      prisma.residents.count({where: {voting_status: "registered"}}),
+    ])
+
+    const decryptedResidents = decryptAll(residents)
+
+    const residentsWithAge = decryptedResidents.map((resident: any) => ({
+      ...resident,
+      age: calculateAge(resident.b_date),
+    }))
+
+    res.json({
+      residents: residentsWithAge,
+      meta: {
+        page,
+        limit,
+        total,
+        registeredCount,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
+  } catch (err) {
+    handlePrismaError(err, res)
+  }
+}
+
+
+export const getArchiveResidents = async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -159,8 +300,12 @@ export const getResidents = async (
 
     const [residents, total] = await Promise.all([
       prisma.residents.findMany({
+        where: {
+          remarks: "archive",
+        },
         skip,
         take: limit,
+
         include : {
           purok: {
             select: {
@@ -168,7 +313,7 @@ export const getResidents = async (
             }
           },
       }}),
-      prisma.residents.count(),
+      prisma.residents.count({where: {remarks: "archive"}}),
     ])
 
     const decryptedResidents = decryptAll(residents)
@@ -192,24 +337,6 @@ export const getResidents = async (
   }
 }
 
-
-/* READ ONE */
-export const getResidentById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const resident = await prisma.residents.findUnique({
-      where: { id: req.params.id },
-    })
-
-    if (!resident) {
-      res.status(404).json({ message: "Resident not found" })
-      return
-    }
-
-    res.json(resident)
-  } catch (err) {
- handlePrismaError(err, res)
-  }
-}
 
 /* UPDATE */
 export const updateResident = async (req: Request, res: Response): Promise<void> => {

@@ -1,10 +1,12 @@
 import express from "express";
-import { login } from "../controllers/auth.controller";
+import { login,googleLogin } from "../controllers/auth.controller";
 import { refreshAccessToken } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
 router.post("/login", login);
+
+router.post("/google-login",googleLogin)
 
 // 🔁 Refresh access token (cookie only)
 router.post("/refresh", refreshAccessToken);
@@ -12,7 +14,10 @@ router.post("/refresh", refreshAccessToken);
 // 🚪 Logout
 router.post("/logout", (req, res) => {
   res.clearCookie("refresh_token", {
-    path: "/api/auth/refresh",
+    httpOnly: true,
+    secure: false, // true in production
+    sameSite: "lax",
+    path: "/api", // must match cookie path
   });
   res.sendStatus(204);
 });

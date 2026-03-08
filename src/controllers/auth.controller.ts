@@ -7,6 +7,84 @@ import {
 } from "../utils/jwt.util";
 import { hashEmail } from "../utils/hash.util";
 import { decryptAll } from "../utils/crypto.util";
+import { verifyGoogleToken } from "../utils/googleAuth.util";
+
+export const googleLogin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.body; // Google ID token from frontend
+
+    if (!token) {
+      res.status(400).json({ error: "Token is required" });
+      return;
+    }
+
+    const payload = await verifyGoogleToken(token);
+
+    if (!payload?.email) {
+      res.status(401).json({ error: "Invalid Google token" });
+      return;
+    }
+
+
+       const hashedEmail = hashEmail(payload.email.toLowerCase());
+    // 🔹 Find resident by email
+    const resident = await prisma.residents.findUnique({
+      where: { h_email_address: hashedEmail },
+    });
+
+    if (!resident) {
+      res.status(403).json({ error: "Resident not registered" });
+      return;
+    }
+
+    // 🔹 Find or create user
+    let user = await prisma.user.findUnique({
+      where: { resident_id: resident.id },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          resident_id: resident.id,
+          verified: true,
+          // store Google sub as reference
+          // google_id: payload.sub // optional
+        },
+      });
+    }
+
+    // 🔹 Prepare JWT payload
+    const jwtPayload = {
+      id: user.id,
+      role: user.role,
+      resident_id: user.resident_id,
+      data: {
+        resident_name: decryptAll(resident.f_name) + " " + decryptAll(resident.l_name),
+        resident_email: payload.email.toLowerCase(),
+        resident_sex: resident.sex,
+      },
+    };
+
+    // 🔹 Sign tokens
+    const accessToken = signAccessToken(jwtPayload);
+    const refreshToken = signRefreshToken(jwtPayload);
+
+    // 🔐 Send refresh token as HttpOnly cookie
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: false, // true in production (HTTPS)
+      sameSite: "lax",
+      path: "/api",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // ✅ Send access token in JSON
+    res.json({ accessToken });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Google login failed" });
+  }
+};
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {

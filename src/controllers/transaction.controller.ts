@@ -5,24 +5,38 @@ import path from "path"
 import { generateCertificate } from "../utils/certificates/helper.generateCertificate"
 import { safeDecrypt, } from "../utils/crypto.util"
 import { getDayWithSuffix } from "../helper/date.helper"
-import { request } from "http"
-import { connect } from "http2"
+import { sendNotification } from "../service/notification.service"
+import { dataTagErrorSymbol } from "@tanstack/react-query"
 
 /* CREATE */
 export const createTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { name, template, ...transactionData } = req.body;
+
+    // Create transaction in the database (exclude 'name' and 'template')
     const transaction = await prisma.transaction.create({
-      data: req.body,
-    })
-    res.status(201).json(transaction)
+      data: transactionData,
+    });
+
+    // Prepare a more formal and detailed notification
+    const message = `Resident ${name} has submitted a request for a "${template}". The request is now awaiting your review. Please take a moment to verify the details and process it when convenient to help ensure the resident receives timely assistance.`;
+    // Send notification to admin/staff
+    await sendNotification(transaction.resident_id, "staff", {
+      title: "New Certificate Request Submitted",
+      message,
+      from: name, // submitted by resident
+      type: "info",
+    });
+
+    res.status(201).json("Request Sent!");
   } catch (err) {
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
 
 /* READ ALL */
 export const getOnlineRequest = async (_req: Request, res: Response): Promise<void> => {
@@ -34,7 +48,7 @@ export const getOnlineRequest = async (_req: Request, res: Response): Promise<vo
             requestType: true,
           },
         },
-        status: { in: ["pending", "on process","ready to claim"] }
+        status: { in: ["pending", "on process", "ready to claim"] }
       },
       include: {
         certificate: {
@@ -164,7 +178,7 @@ export const getHistory = async (_req: Request, res: Response): Promise<void> =>
   try {
     const transactions = await prisma.transaction.findMany({
       where: {
-        status: { in: ["completed", "declined","cancelled","expired"] }
+        status: { in: ["completed", "declined", "cancelled", "expired"] }
       },
       include: {
         certificate: {
@@ -261,7 +275,7 @@ export const getTransactionByIds = async (
       resident.l_name = resident.l_name && safeDecrypt(resident.l_name);
       resident.s_name = resident.s_name && safeDecrypt(resident.s_name);
       resident.civil_status = resident.civil_status && safeDecrypt(resident.civil_status);
-      
+
       resident.b_place = resident.b_place && safeDecrypt(resident.b_place);
       resident.contact_no = resident.contact_no && safeDecrypt(resident.contact_no);
       resident.house_no = resident.house_no && safeDecrypt(resident.house_no);
@@ -394,20 +408,44 @@ export const getTransactionById = async (
 /* UPDATE */
 export const updateTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { appointment_date, status, handled_by_id } = req.body;
+    const { appointment_date, status, handled_by_id, handler_name } = req.body;
 
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },
-   data: {
-  status,
-  ...(appointment_date && {
-    appointment_date: new Date(appointment_date),
-  }),
-  ...(handled_by_id && {
-    handler: handled_by_id,
-  }),
-},
+      data: {
+        status,
+        ...(appointment_date && {
+          appointment_date: new Date(appointment_date),
+        }),
+        ...(handled_by_id && {
+          handler: handled_by_id,
+        }),
+      },
+    });
 
+    // Prepare formal notification message
+    let message = "";
+    if (status === "approved") {
+      const formattedDate = transaction.appointment_date
+        ? transaction.appointment_date.toLocaleDateString("en-PH", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "a scheduled date";
+      message = `Your certificate request has been formally approved by ${handler_name}. The appointment is set for ${formattedDate}. Please check your account for further details.`;
+    } else if (status === "declined") {
+      message = `Your certificate request has been formally declined by ${handler_name}. Please review the details and contact the Barangay Office if needed.`;
+    } else {
+      message = `The status of your certificate request has been updated to '${status}' by ${handler_name}.`;
+    }
+
+    await sendNotification(transaction.resident_id, "resident", {
+      title: "Certificate Request Update",
+      message,
+      from: "Barangay Office",
+      type: "info",
     });
 
     res.json(transaction);

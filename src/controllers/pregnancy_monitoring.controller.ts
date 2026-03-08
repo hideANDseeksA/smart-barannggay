@@ -5,9 +5,23 @@ import { decrypt } from "../utils/crypto.util"
 /* CREATE */
 export const createPregnancy_monitoring = async (req: Request, res: Response): Promise<void> => {
   try {
+    const data = {
+      ...req.body,
+      pregnancy_start_date: req.body.pregnancy_start_date
+        ? new Date(req.body.pregnancy_start_date)
+        : null,
+      expected_delivery_date: req.body.expected_delivery_date
+        ? new Date(req.body.expected_delivery_date)
+        : null,
+      last_checkup: req.body.last_checkup
+        ? new Date(req.body.last_checkup)
+        : null,
+    }
+
     const pregnancy_monitoring = await prisma.pregnancy_monitoring.create({
-      data: req.body,
+      data,
     })
+
     res.status(201).json(pregnancy_monitoring)
   } catch (err) {
     if (err instanceof Error) {

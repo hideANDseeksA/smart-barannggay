@@ -3,7 +3,7 @@ import prisma from "../prisma"
 import { getIO } from "../socket"
 import { decryptAll } from "../utils/crypto.util"
 import { encrypt } from "../utils/crypto.util"
-
+import { Role } from '@prisma/client';
 
   interface NotificationContent {
   title: string
@@ -43,11 +43,12 @@ export const createNotification = async (
     const io = getIO()
 
     // 3️⃣ Emit the full payload, not just content
-    if (resident_id) {
+    if (resident_id && role === "resident") {
       io.to(`user:${resident_id}`).emit("new-notification", payload) // ✅
     }
 
-    if (role === "staff" || role === "healthworker") {
+    if (role 
+      !== "resident") {
       io.to(`role:${role}`).emit("new-notification", payload) 
     }
 
@@ -61,19 +62,26 @@ export const createNotification = async (
     }
   }
 }
-/* READ ALL */
-export const getNotifications = async (_req: Request, res: Response): Promise<void> => {
+
+export const getNotificationsByRole = async (req: Request, res: Response) => {
   try {
-    const notifications = await prisma.notification.findMany()
-    res.json(notifications)
-  } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+    const { receiver } = req.params; // "resident", "staff", "healthworker"
+
+    // Validate role
+    if (!["resident", "staff", "healthworker"].includes(receiver)) {
+      return res.status(400).json({ error: "Invalid role" });
     }
+
+    const notifications = await prisma.notification.findMany({
+      where: { receiver: receiver as Role },
+      orderBy: { timestamp: "desc" },
+    });
+
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
   }
-}
+};
 
 /* Get By resident_id */
 export const getNotificationsByResidentId = async (
@@ -83,7 +91,7 @@ export const getNotificationsByResidentId = async (
   try {
     const { resident_id } = req.params
     const notifications = await prisma.notification.findMany({
-      where: { resident_id },
+      where: { resident_id, receiver:"resident" },
     })
 
     const formattedNotifications = notifications.map(n => {

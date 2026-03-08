@@ -1,64 +1,16 @@
-import { Request, Response } from "express"
-import prisma from "../prisma"
-import { uploadToSupabase } from "../utils/supabaseUpload.util"
-import { generateSignedUrl } from "../utils/supabaseUrl.util"
+import { Request, Response } from "express";
+import prisma from "../prisma";
+import { uploadToSupabase } from "../utils/supabaseUpload.util";
+import { generateSignedUrl } from "../utils/supabaseUrl.util";
 import { createEmbedding } from "../utils/embedding";
-import { lowercaseJson, uppercaseDeep, lowercaseDeep } from "../helper/lowercase.helper";
-import { decryptAll, encrypt } from "../utils/crypto.util";
+import { lowercaseJson, uppercaseDeep } from "../helper/lowercase.helper";
+import { decryptAll } from "../utils/crypto.util";
 import { Prisma } from "@prisma/client";
-import { updateSupabaseFile } from "../utils/supabaseUpdate.util"
+import { updateSupabaseFile } from "../utils/supabaseUpdate.util";
 import { apiCache } from "../utils/apiCache";
+import { smartExpand } from "../utils/query-expansion";
 
-export const createBlotter = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { resident_id, details, status } = req.body;
-    const file = req.file;
-
-   let file_path: string | null = null;
-
-
-
-    
-      if (file) {
-      file_path = await uploadToSupabase({
-        bucket: "blotter",
-        file, // ← still a FILE, not string
-      });
-    }
-
-    /* Decrypt and embed details */
-    const decrypted = decryptAll(details);
-    const details_lowercase = lowercaseJson(decrypted);
-    const vector = await createEmbedding(details_lowercase);
-    const vectorSql = Prisma.raw(`'[${vector.join(",")}]'::"smart-barangay".vector`);
-
-    await prisma.$queryRaw`
-  INSERT INTO "smart-barangay".blotter
-    (id, resident_id, details, status, file_path, embeddings)
-  VALUES
-    (
-      gen_random_uuid(),
-      ${resident_id}::uuid,
-      ${details},
-      ${status},
-      ${file_path},
-      ${vectorSql}
-    )
-`;
-
-apiCache.clearAll();
-    res.status(201).json({ message: "Blotter created successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : "Unknown error",
-    });
-  }
-};
-
+// ─── types ────────────────────────────────────────────────────────────────────
 
 type BlotterResult = {
   id: string;
@@ -72,41 +24,116 @@ type BlotterResult = {
   score: number;
 };
 
+// ─── CREATE ───────────────────────────────────────────────────────────────────
+
+export const createBlotter = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { resident_id, details, status } = req.body;
+    const file = req.file;
+
+    let file_path: string | null = null;
+
+    if (file) {
+      file_path = await uploadToSupabase({ bucket: "blotter", file });
+    }
+
+    // Decrypt → lowercase → embed
+    const decrypted = decryptAll(details);
+    const details_lowercase = lowercaseJson(decrypted);
+    const vector = await createEmbedding(details_lowercase, "passage");
+    const vectorSql = Prisma.raw(
+      `'[${vector.join(",")}]'::"smart-barangay".vector`
+    );
+
+    await prisma.$queryRaw`
+      INSERT INTO "smart-barangay".blotter
+        (id, resident_id, details, status, file_path, embeddings)
+      VALUES (
+        gen_random_uuid(),
+        ${resident_id}::uuid,
+        ${details},
+        ${status},
+        ${file_path},
+        ${vectorSql}
+      )
+    `;
+
+    apiCache.clearAll();
+    res.status(201).json({ message: "Blotter created successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+};
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+//
+//  PURE SEMANTIC SEARCH — NO BM25
+//  ─────────────────────────────────────────────────────────────────────────────
+//  The `details` column is AES-encrypted so full-text (BM25/ts_rank) search
+//  on it is impossible. Pure vector search + smartExpand() is used instead.
+//
+//  smartExpand() automatically:
+//    • Detects known Tagalog/English crime aliases (pangagahasa → rape, etc.)
+//    • Adds bilingual barangay-context anchors to close the query-passage gap
+//    • Routes to person/location expansion when mode is set accordingly
+//
+//  Threshold guide for BGE-M3 (normalized cosine):
+//    ≥ 0.80  → strong match
+//    ≥ 0.70  → relevant              ← default
+//    ≥ 0.60  → borderline (higher recall, lower precision)
+//    < 0.60  → noise — never return these
+
 export const searchBlotters = async (req: Request, res: Response) => {
   try {
-    const { query, limit = 15 } = req.body;
-    if (!query)
+    const {
+      query,
+      limit     = 15,
+      mode      = "general",   // "general" | "person" | "location"
+      threshold = 0.69,
+    } = req.body;
+
+    if (!query || typeof query !== "string") {
       return res.status(400).json({ message: "Query is required" });
+    }
 
-    /* 1️⃣ Lowercase query BEFORE embedding */
-    const queryLowercase =
-      typeof query === "string" ? query.toLowerCase() : lowercaseDeep(query);
+    const raw = query.trim();
 
-    const embedding = await createEmbedding(queryLowercase);
+    // 1 ── Smart bilingual query expansion
+    //      Handles Tagalog ↔ English aliases automatically.
+    //      e.g. "pangagahasa" → expands to include "rape", "sexual assault", etc.
+    const expanded = smartExpand(raw, mode);
+
+    // 2 ── Embed — BGE-M3 needs no prefix (handled inside createEmbedding)
+    const embedding = await createEmbedding(expanded, "query");
     const vectorLiteral = `[${embedding.join(",")}]`;
 
-    /* 2️⃣ Vector search */
-    const threshold = 0.2;
-    const results: BlotterResult[] =
-      await prisma.$queryRaw<BlotterResult[]>`
-     SELECT
-      id,
-      resident_id,
-      details,
-      status,
-      file_path,
-      created_at,
-      updated_at,
-      1 - (embeddings <=> ${vectorLiteral}::vector) AS score
-  FROM "smart-barangay".blotter
-  WHERE embeddings IS NOT NULL
-    AND 1 - (embeddings <=> ${vectorLiteral}::vector) >= ${threshold}
-  ORDER BY embeddings <=> ${vectorLiteral}::vector
-  LIMIT ${Number(limit)};
-      `;
+    // 3 ── Cosine similarity search — only records above threshold returned
+    const finalResults = await prisma.$queryRaw<BlotterResult[]>`
+      SELECT
+        id,
+        resident_id,
+        details,
+        status,
+        file_path,
+        created_at,
+        updated_at,
+        1 - (embeddings <=> ${vectorLiteral}::"smart-barangay".vector) AS score
+      FROM "smart-barangay".blotter
+      WHERE embeddings IS NOT NULL
+        AND (1 - (embeddings <=> ${vectorLiteral}::"smart-barangay".vector)) >= ${Number(threshold)}
+      ORDER BY embeddings <=> ${vectorLiteral}::"smart-barangay".vector
+      LIMIT ${Number(limit)}
+    `;
 
-    const resultsWithUrls: BlotterResult[] = await Promise.all(
-      results.map(async (r) => ({
+    // 4 ── Generate signed file URLs
+    const resultsWithUrls = await Promise.all(
+      finalResults.map(async (r) => ({
         ...r,
         file_url: r.file_path
           ? await generateSignedUrl(r.file_path, 60 * 5)
@@ -114,30 +141,21 @@ export const searchBlotters = async (req: Request, res: Response) => {
       }))
     );
 
-
-
-
-    const formattedResults: BlotterResult[] = results.map((r) => {
+    // 5 ── Decrypt + uppercase details for response
+    const formattedResults = resultsWithUrls.map((r) => {
       let detailsObj: Record<string, any>;
-
-      // Check if details is a string (double-encoded)
       if (typeof r.details === "string") {
         try {
-          detailsObj = JSON.parse(decryptAll(r.details)); // parse string into object
+          detailsObj = JSON.parse(decryptAll(r.details));
         } catch {
-          detailsObj = {}; // fallback if parsing fails
+          detailsObj = {};
         }
       } else {
-        detailsObj = decryptAll(r.details); 
+        detailsObj = decryptAll(r.details);
       }
-
-      return {
-        ...r,
-        details: uppercaseDeep(detailsObj),
-        file_url: resultsWithUrls.find((res) => res.id === r.id)?.file_url || null,
-
-      };
+      return { ...r, details: uppercaseDeep(detailsObj) };
     });
+
     res.json(formattedResults);
   } catch (err) {
     console.error("Error searching blotters:", err);
@@ -145,76 +163,79 @@ export const searchBlotters = async (req: Request, res: Response) => {
   }
 };
 
+// ─── READ ALL (paginated) ─────────────────────────────────────────────────────
 
-
-
-
-/* READ ALL */
-export const getbBlotter = async (req: Request, res: Response): Promise<void> => {
+export const getbBlotter = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const page  = Math.max(1, parseInt(req.query.page  as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
-    // Create a unique cache key per page & limit
     const cacheKey = `blotters_page_${page}_limit_${limit}`;
 
-    // Use apiCache to fetch or return cached data
-    const blottersWithUrls = await apiCache.get(cacheKey, async () => {
-      // 1️⃣ Fetch blotters from DB
-      const [blotters, total] = await Promise.all([
-        prisma.blotter.findMany({
-          select: {
-            id: true,
-            resident_id: true,
-            details: true,
-            status: true,
-            file_path: true,
-            created_at: true,
-            updated_at: true,
+    const blottersWithUrls = await apiCache.get(
+      cacheKey,
+      async () => {
+        const [blotters, total] = await Promise.all([
+          prisma.blotter.findMany({
+            select: {
+              id: true,
+              resident_id: true,
+              details: true,
+              status: true,
+              file_path: true,
+              created_at: true,
+              updated_at: true,
+            },
+            skip,
+            take: limit,
+          }),
+          prisma.blotter.count(),
+        ]);
+
+        const results = await Promise.all(
+          blotters.map(async (blotter) => ({
+            ...blotter,
+            file_url: blotter.file_path
+              ? await generateSignedUrl(blotter.file_path, 60 * 60 * 24)
+              : null,
+            details: blotter.details
+              ? JSON.parse(decryptAll(blotter.details))
+              : null,
+          }))
+        );
+
+        return {
+          data: results,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
           },
-          skip,
-          take: limit,
-        }),
-        prisma.blotter.count(),
-      ]);
-
-   
-      const results = await Promise.all(
-        blotters.map(async (blotter) => ({
-          ...blotter,
-          file_url: blotter.file_path
-            ? await generateSignedUrl(blotter.file_path, 60 * 60 * 24) 
-            : null,
-          details: blotter.details ? JSON.parse(decryptAll(blotter.details)) : null,
-        }))
-      );
-
-    
-      return {
-        data: results,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    }, 60 * 60); 
+        };
+      },
+      60 * 60
+    );
 
     res.json(blottersWithUrls);
   } catch (err) {
     console.error(err);
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" });
-    }
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    });
   }
 };
 
+// ─── READ ONE ─────────────────────────────────────────────────────────────────
 
-export const getBlotterById = async (req: Request, res: Response): Promise<void> => {
+export const getBlotterById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -236,25 +257,24 @@ export const getBlotterById = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const blotterWithUrl = {
+    res.json({
       ...blotter,
       file_url: blotter.file_path
         ? await generateSignedUrl(blotter.file_path, 60 * 5)
         : null,
-      details: blotter.details ? JSON.parse(decryptAll(blotter.details)) : null,
-    };
-
-    res.json(blotterWithUrl);
+      details: blotter.details
+        ? JSON.parse(decryptAll(blotter.details))
+        : null,
+    });
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" });
-    }
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    });
   }
 };
 
-/* UPDATE */
+// ─── UPDATE ───────────────────────────────────────────────────────────────────
+
 export const updateBlotter = async (
   req: Request,
   res: Response
@@ -264,20 +284,15 @@ export const updateBlotter = async (
     const file = req.file;
     const { id } = req.params;
 
-    /* 1️⃣ Prepare fields */
+    const existing = await prisma.blotter.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ error: "Blotter not found" });
+      return;
+    }
+
     let file_path: string | undefined;
     let vectorSql: Prisma.Sql | undefined;
 
-    const existing = await prisma.blotter.findUnique({
-      where: { id },
-    })
-
-    if (!existing) {
-      res.status(404).json({ error: "Blotter not found" })
-      return
-    }
-
-    /* 2️⃣ Handle file upload (optional) */
     if (file) {
       file_path = await updateSupabaseFile({
         bucket: "blotter",
@@ -286,28 +301,28 @@ export const updateBlotter = async (
       });
     }
 
-    /* 3️⃣ Handle details + embeddings (optional but recommended) */
     if (details) {
       const decrypted = decryptAll(details);
       const detailsLowercase = lowercaseJson(decrypted);
-      const vector = await createEmbedding(detailsLowercase);
-
-      vectorSql = Prisma.raw(`'[${vector.join(",")}]'::vector`);
+      const vector = await createEmbedding(detailsLowercase, "passage");
+      vectorSql = Prisma.raw(
+        `'[${vector.join(",")}]'::"smart-barangay".vector`
+      );
     }
 
-    /* 4️⃣ Raw update so pgvector works */
     await prisma.$queryRaw`
       UPDATE "smart-barangay".blotter
       SET
-        details     = COALESCE(${details}, details),
-        status      = COALESCE(${status}, status),
+        details     = COALESCE(${details},           details),
+        status      = COALESCE(${status},            status),
         resident_id = COALESCE(${resident_id}::uuid, resident_id),
-        file_path   = COALESCE(${file_path}, file_path),
-        embeddings  = COALESCE(${vectorSql}, embeddings),
+        file_path   = COALESCE(${file_path},         file_path),
+        embeddings  = COALESCE(${vectorSql},         embeddings),
         updated_at  = NOW()
       WHERE id = ${id}::uuid
     `;
 
+    apiCache.clearAll();
     res.json({ message: "Blotter updated successfully" });
   } catch (err) {
     console.error("Update blotter error:", err);
@@ -317,20 +332,19 @@ export const updateBlotter = async (
   }
 };
 
+// ─── DELETE ───────────────────────────────────────────────────────────────────
 
-/* DELETE */
-export const deleteBlotter = async (req: Request, res: Response): Promise<void> => {
+export const deleteBlotter = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    await prisma.blotter.delete({
-      where: { id: req.params.id },
-    })
+    await prisma.blotter.delete({ where: { id: req.params.id } });
     apiCache.clearAll();
-    res.json({ message: "blotter deleted successfully" })
+    res.json({ message: "Blotter deleted successfully" });
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
-    }
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    });
   }
-}
+};

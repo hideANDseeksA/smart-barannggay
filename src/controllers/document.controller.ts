@@ -129,7 +129,7 @@ export const updateDocuments = async (req: Request, res: Response): Promise<void
 
 const file = req.file
 const {id } = req.params
-const { document_type_id,title ,purpose ,issued_date  ,status} = req.body
+const { document_type_id,title ,purpose ,issued_date  ,status,pin,is_public} = req.body
 
 const existingDocument = await prisma.documents.findUnique({
   where: { id },
@@ -158,6 +158,10 @@ if (file) {
         purpose,
         issued_date: issued_date ? new Date(issued_date) : null,
         status,
+        pin:pin == undefined ? true
+            : pin === "true" || pin === true,
+        is_public:is_public  == undefined ? true
+            : is_public === "true" || is_public === true,
         file_url
       },
     })
@@ -168,6 +172,8 @@ if (file) {
     } else {
       res.status(500).json({ error: "Unknown error occurred" })
     }
+
+    console.log(err)
   }
 }
 

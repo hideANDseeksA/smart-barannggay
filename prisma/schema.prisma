@@ -50,7 +50,7 @@ model residents {
   education              E_attainment?
   emp_status             Emp_Status?
   h_contact_no           String?
-  h_email_address        String?          @unique
+  h_email_address        String?           @unique
   h_l_name               String?
   blotter                blotter[]
   complaints             complaints[]
@@ -84,10 +84,8 @@ model blotter {
   file_path   String?
   resident_id String                 @db.Uuid
   h_resident  String?
-  embeddings  Unsupported("vector(384)")?
+  embeddings  Unsupported("vector")?
   resident    residents              @relation(fields: [resident_id], references: [id])
-
-  
 }
 
 model certificates {
@@ -97,8 +95,8 @@ model certificates {
   template_path         String?
   timestamp             DateTime      @default(now()) @db.Timestamp(6)
   requestType           Boolean       @default(true)
-  public_view           Boolean       @default(false)
   template_requirements String?
+  public_view           Boolean       @default(false)
   transactions          transaction[]
 }
 
@@ -116,11 +114,11 @@ model documents {
   purpose          String?
   issued_date      DateTime?      @db.Date
   status           String         @default("Active")
-  pin              Boolean        @default(false)
-  is_public        Boolean        @default(false)
   file_url         String?
   created_at       DateTime       @default(now())
   updated_at       DateTime       @default(now())
+  is_public        Boolean        @default(false)
+  pin              Boolean        @default(false)
   document_type    document_types @relation(fields: [document_type_id], references: [id])
 }
 
@@ -163,8 +161,8 @@ model notification {
   resident_id String    @db.Uuid
   content     String?
   mark_read   Boolean   @default(false)
-  timestamp   DateTime? @db.Time(6)
   receiver    Role?
+  timestamp   DateTime  @default(now())
   resident    residents @relation(fields: [resident_id], references: [id])
 }
 

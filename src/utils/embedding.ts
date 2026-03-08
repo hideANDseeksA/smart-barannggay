@@ -3,98 +3,76 @@ import { pipeline, FeatureExtractionPipeline } from "@xenova/transformers";
 let embedder: FeatureExtractionPipeline | null = null;
 
 /**
- * Load the embedding model once and cache it
+ * Load and cache BGE-M3 (1024 dimensions).
+ * Best model for Tagalog / Taglish semantic search.
+ * Handles code-switching naturally (e.g. "nag-away", "ginahasa", "nagnakaw").
  */
 async function loadEmbedder(): Promise<FeatureExtractionPipeline> {
   if (!embedder) {
-    console.log("🔄 Loading multilingual-e5-base (768d)...");
+    console.log("🔄 Loading BAAI/bge-m3 (1024d)...");
     embedder = await pipeline(
       "feature-extraction",
-      "Xenova/paraphrase-multilingual-mpnet-base-v2"
+      "Xenova/bge-m3"
     );
-    console.log("✅ multilingual-e5-base loaded");
+    console.log("✅ BAAI/bge-m3 loaded");
   }
   return embedder;
 }
 
 /**
- * Flatten any nested object into plain text
- */
-export function flattenText(input: any): string {
-  if (!input) return "";
-
-  if (typeof input === "string") return input;
-  if (typeof input === "number") return input.toString();
-  if (typeof input === "boolean") return input ? "true" : "false";
-
-  if (Array.isArray(input)) {
-    return input.map(flattenText).join(" ");
-  }
-
-  if (typeof input === "object") {
-    return Object.entries(input)
-      .map(([key, value]) => `${key}: ${flattenText(value)}`)
-      .join(" ");
-  }
-
-  return "";
-}
-
-/**
- * Render blotter details into human-readable text
+ * Render a blotter complaint object into semantically rich text for embedding.
+ *
+ * ⚠️  NAMES ARE INTENTIONALLY EXCLUDED (name1, name2, complainant, accused).
+ * Person names are semantically meaningless to the model — they dilute the
+ * vector and cause unrelated records to score higher than they should.
+ * The embedding captures WHAT HAPPENED only. Name-based lookup should be
+ * done via exact DB filtering, not vector search.
+ *
+ * Key concepts are repeated intentionally — BGE-M3 uses mean pooling,
+ * so repetition raises a term's average contribution to the final vector.
  */
 export function renderBlotterForEmbedding(details: any): string {
-  if (!details || typeof details !== "object") {
-    return flattenText(details);
-  }
+  if (!details || typeof details !== "object") return "";
 
-  if (!details.date && !details.complaint_details) {
-    return flattenText(details);
-  }
+  const complaintType    = details.complaint_type?.trim()    || "";
+  const complaintDetails = details.complaint_details?.trim() || "";
+  const location         = details.location?.trim()          || "";
 
-  return `
-Uri ng Reklamo: ${details.complaint_type ?? ""}
-Pangalan ng Nagreklamo: ${details.name1 ?? ""}
-Kasarian: ${details.sex1 ?? ""}
-Tirahan: ${details.address1 ?? ""}
-Katayuan sa Buhay: ${details.occupation1 ?? ""}
+  if (!complaintType && !complaintDetails) return "";
 
-Pangalan ng Nirereklamo: ${details.name2 ?? ""}
-Kasarian: ${details.sex2 ?? ""}
-Tirahan: ${details.address2 ?? ""}
-Katayuan sa Buhay: ${details.occupation2 ?? ""}
-
-Detalye ng Reklamo:
-${details.complaint_details ?? ""}
-
-Nagpatala: ${details.name3 ?? ""}
-`.trim();
+  return [
+    `Barangay blotter complaint report.`,
+    `Complaint type: ${complaintType}.`,
+    `Offense category: ${complaintType}.`,                    // repeated for mean-pool weight
+    complaintDetails ? `Incident details: ${complaintDetails}` : "",
+    location         ? `Location of incident: ${location}.`  : "",
+    `This barangay blotter case involves ${complaintType}.`,  // closing semantic anchor
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
- * Generate embedding (768 dimensions)
+ * Generate a normalized embedding vector using BGE-M3.
+ * Vectors are L2-normalized — cosine similarity = dot product.
+ *
+ * ⚠️  BGE-M3 does NOT require a "query:" / "passage:" prefix like E5.
+ *     The `type` parameter is kept for API compatibility but is unused.
+ *
+ * @param input  Raw string or blotter details object.
+ * @param type   Kept for drop-in compatibility — ignored by BGE-M3.
  */
 export async function createEmbedding(
   input: string | object,
-  type: "passage" | "query" = "passage"
+  type: "passage" | "query" = "passage" // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Promise<number[]> {
-  let parsedInput: any = input;
+  let text: string;
 
-  if (typeof input === "string") {
-    try {
-      const maybeObject = JSON.parse(input);
-      if (maybeObject && typeof maybeObject === "object") {
-        parsedInput = maybeObject;
-      }
-    } catch {}
+  if (typeof input === "object") {
+    text = renderBlotterForEmbedding(input);
+  } else {
+    text = input.trim();
   }
-
-  const rawText =
-    typeof parsedInput === "object"
-      ? renderBlotterForEmbedding(parsedInput)
-      : parsedInput;
-
-  const text = rawText?.trim();
 
   if (!text) {
     throw new Error("Text must be non-empty for embedding");
@@ -102,13 +80,11 @@ export async function createEmbedding(
 
   const model = await loadEmbedder();
 
-  // IMPORTANT: E5 models require prefix
-  const formatted = `${type}: ${text}`;
-
-  const tensor = await model(formatted, {
+  // BGE-M3 does NOT use query:/passage: prefixes — pass text directly.
+  const output = await model(text, {
     pooling: "mean",
-    normalize: true,
+    normalize: true, // required for correct cosine similarity
   });
 
-  return Array.from(tensor.data as Float32Array);
+  return Array.from(output.data as Float32Array);
 }

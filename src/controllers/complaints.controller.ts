@@ -4,6 +4,7 @@ import { uploadToSupabase } from "../utils/supabaseUpload.util"
 import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import { updateSupabaseFile } from "../utils/supabaseUpdate.util"
 import { deleteFromSupabase } from "../utils/supabaseDelete.util"
+import { decrypt } from "../utils/crypto.util"
 
 export const createComplaints = async (
   req: Request,
@@ -43,31 +44,85 @@ export const createComplaints = async (
   }
 }
 
-/* READ ALL */
-export const getcomplaints = async (
+/* READ ALL */export const getcomplaints = async (
   _req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const complaints = await prisma.complaints.findMany()
+    const complaints = await prisma.complaints.findMany({
+      include: {
+        resident: {
+          select: {
+            resident_id: true,
+            f_name: true,
+            m_name: true,
+            l_name: true,
+            purok: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 🔹 Initialize monthly resolved count
+    const monthlyResolvedCount: Record<string, number> = {
+      Jan: 0, Feb: 0, Mar: 0, Apr: 0,
+      May: 0, Jun: 0, Jul: 0, Aug: 0,
+      Sep: 0, Oct: 0, Nov: 0, Dec: 0,
+    };
 
     const result = await Promise.all(
-      complaints.map(async comp => ({
-        ...comp,    
-        image_url: comp.image_paths
-          ? await generateSignedUrl(comp.image_paths, 60 * 5)
-          : null,
-      }))
-    )
+      complaints.map(async (comp) => {
+        // 🔹 Count resolved complaints by month (ALL years)
+        if (comp.status === "resolved") {
+          const month = comp.created_at.toLocaleString("en-US", {
+            month: "short",
+          });
+          monthlyResolvedCount[month]++;
+        }
 
-    res.json(result)
+        // 🔹 Decrypt resident names
+        if (comp.resident) {
+          comp.resident.f_name =
+            comp.resident.f_name && decrypt(comp.resident.f_name);
+          comp.resident.m_name =
+            comp.resident.m_name && decrypt(comp.resident.m_name);
+          comp.resident.l_name =
+            comp.resident.l_name && decrypt(comp.resident.l_name);
+        }
+
+        comp.complaint_type =
+        comp.complaint_type && decrypt(comp.complaint_type);
+         comp.description =
+        comp.description && decrypt(comp.description);
+        
+
+        
+
+        return {
+          ...comp,
+          image_url: comp.image_paths
+            ? await generateSignedUrl(comp.image_paths, 60 * 5)
+            : null,
+        };
+      })
+    );
+
+    // 🔹 Final response
+    res.json({
+      complaints: result,
+      monthlyResolvedCount,
+    });
   } catch (err) {
-    console.error(err)
+    console.error(err);
     res.status(500).json({
       error: err instanceof Error ? err.message : "Unknown error occurred",
-    })
+    });
   }
-}
+};
 
 
 
