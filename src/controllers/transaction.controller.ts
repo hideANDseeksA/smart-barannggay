@@ -6,7 +6,7 @@ import { generateCertificate } from "../utils/certificates/helper.generateCertif
 import { safeDecrypt, } from "../utils/crypto.util"
 import { getDayWithSuffix } from "../helper/date.helper"
 import { sendNotification } from "../service/notification.service"
-import { dataTagErrorSymbol } from "@tanstack/react-query"
+
 
 /* CREATE */
 export const createTransaction = async (req: Request, res: Response): Promise<void> => {
