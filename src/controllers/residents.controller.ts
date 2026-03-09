@@ -338,6 +338,39 @@ export const getArchiveResidents = async (
 }
 
 
+
+export const getResidentsByID = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Resident ID is required" });
+    }
+
+    const resident = await prisma.residents.findUnique({
+      where: { resident_id: String(id) 
+      },
+      include:{
+        purok:{
+          select:{name:true}
+        }
+      }
+    });
+
+    if (!resident) {
+      return res.status(404).json({ error: "Resident not found" });
+    }
+
+    res.json(resident);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch resident" });
+  }
+};
+
+
+
+
 /* UPDATE */
 export const updateResident = async (req: Request, res: Response): Promise<void> => {
   try {

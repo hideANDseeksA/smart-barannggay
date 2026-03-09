@@ -4,6 +4,7 @@ import {
   getResidents,
   getBDACResidents,
   getArchiveResidents,
+  getResidentsByID,
   updateResident,
   deleteResident,
   createResidentsFromCSV
@@ -95,6 +96,7 @@ createResident)
  */
 router.get("/", decryptFields(SENSITIVE_FIELDS), getResidents)
 
+router.get("/:id",decryptFields(SENSITIVE_FIELDS),getResidentsByID)
 /**
  * @swagger
  * /api/residents/{id}:
@@ -187,6 +189,8 @@ router.get("/archive", decryptFields(SENSITIVE_FIELDS), getArchiveResidents)
  *       200:
  *         description: Resident updated
  */
+
+
 
 router.put("/:id", encryptFields(SENSITIVE_FIELDS), updateResident)
 

@@ -32,7 +32,8 @@ model residents {
   resident_id            String            @unique @default("")
   f_name                 String
   m_name                 String?
-  l_name                 String?
+  md_name                String?
+  l_name                 String
   s_name                 String?
   house_no               String?
   b_place                String?
@@ -142,27 +143,27 @@ model health_records {
   pregnancy   pregnancy_monitoring[]
 }
 
-model pregnancy_monitoring {
-  id                     String          @id @default(uuid()) @db.Uuid
-  health_record_id       String?         @db.Uuid
-  pregnancy_start_date   DateTime        @db.Date
-  expected_delivery_date DateTime        @db.Date
-  current_trimester      Int?
-  last_checkup           DateTime?       @db.Date
-  created_at             DateTime        @default(now())
-  updated_at             DateTime        @default(now())
-  status                 P_status        @default(ongoing)
-  details                String?
-  health_record          health_records? @relation(fields: [health_record_id], references: [id])
-}
+  model pregnancy_monitoring {
+    id                     String          @id @default(uuid()) @db.Uuid
+    health_record_id       String?         @db.Uuid
+    pregnancy_start_date   DateTime        @db.Date
+    expected_delivery_date DateTime        @db.Date
+    current_trimester      Int?
+    last_checkup           DateTime?       @db.Date
+    created_at             DateTime        @default(now())
+    updated_at             DateTime        @default(now())
+    status                 P_status        @default(ongoing)
+    details                String?
+    health_record          health_records? @relation(fields: [health_record_id], references: [id])
+  }
 
 model notification {
   id          String    @id @default(uuid()) @db.Uuid
   resident_id String    @db.Uuid
   content     String?
   mark_read   Boolean   @default(false)
-  receiver    Role?
   timestamp   DateTime  @default(now())
+  receiver    Role?
   resident    residents @relation(fields: [resident_id], references: [id])
 }
 

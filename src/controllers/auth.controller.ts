@@ -72,10 +72,10 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     // 🔐 Send refresh token as HttpOnly cookie
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: false, // true in production (HTTPS)
+      secure: process.env.COOKIES === "true",
       sameSite: "lax",
       path: "/api",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 
     });
 
     // ✅ Send access token in JSON
@@ -141,7 +141,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // 🔐 Refresh token ONLY in HttpOnly cookie
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: false, // true in production (HTTPS)
+      secure: process.env.COOKIES === "true",
       sameSite: "lax",
       path: "/api",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
