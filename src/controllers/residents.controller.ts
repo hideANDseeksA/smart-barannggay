@@ -236,7 +236,6 @@ res.json({
   }
 };
 
-
 export const getBDACResidents = async (
   req: Request,
   res: Response
@@ -249,27 +248,33 @@ export const getBDACResidents = async (
 
     const [residents, total, registeredCount] = await Promise.all([
       prisma.residents.findMany({
-        where: {
-          remarks: "bdac",
-        },
+        where: { remarks: "bdac" },
         skip,
         take: limit,
-        include : {
+        include: {
           purok: {
-            select: {
-              name: true
-            }
+            select: { name: true },
           },
-      }}),
-      prisma.residents.count({where: {remarks: "bdac"}}),
-      prisma.residents.count({where: {voting_status: "registered"}}),
+        },
+      }),
+
+      prisma.residents.count({
+        where: { remarks: "bdac" },
+      }),
+
+      prisma.residents.count({
+        where: {
+          remarks: "bdac",
+          voting_status: "registered",
+        },
+      }),
     ])
 
     const decryptedResidents = decryptAll(residents)
 
     const residentsWithAge = decryptedResidents.map((resident: any) => ({
       ...resident,
-      age: calculateAge(resident.b_date),
+      age: resident.b_date ? calculateAge(resident.b_date) : null,
     }))
 
     res.json({

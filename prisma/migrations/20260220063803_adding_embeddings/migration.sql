@@ -10,7 +10,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 ALTER TABLE "blotter" DROP COLUMN "vector",
-ADD COLUMN     "embeddings" vector(1024);
+ADD COLUMN     "embeddings" vector(384);
 
 -- AlterTable
 ALTER TABLE "documents" DROP COLUMN "expiration_date";

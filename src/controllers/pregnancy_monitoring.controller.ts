@@ -36,64 +36,18 @@ export const createPregnancy_monitoring = async (req: Request, res: Response): P
 export const getPregnancy_monitoring = async (_req: Request, res: Response): Promise<void> => {
   try {
     const pregnancy_monitoring = await prisma.pregnancy_monitoring.findMany({
-      include: {
-        health_record: {
-          include: {
-            resident: true
-          }
-        }
-      },
+
       orderBy: {
         created_at: "desc" // optional but recommended
       }
     });
 
     // Decrypt first
-    const decryptedData = pregnancy_monitoring.map(pm => {
-      if (!pm.health_record) return pm;
-
-      const hr = pm.health_record;
-      const resident = hr.resident;
-
-      return {
-        ...pm,
-        health_record: {
-          ...hr,
-        
-          resident: resident
-            ? {
-                id: resident.id,
-                resident_id: resident.resident_id,
-                f_name: resident.f_name ? decrypt(resident.f_name) : null,
-                l_name: resident.l_name ? decrypt(resident.l_name) : null,
-                m_name: resident.m_name ? decrypt(resident.m_name) : null,
-              }
-            : null
-        }
-      };
-    });
-
+    
     // 🔹 GROUP BY health_record_id
-    const groupedData = decryptedData.reduce((acc: any, pm: any) => {
-      const healthId = pm.health_record_id;
+    
 
-      if (!acc[healthId]) {
-        acc[healthId] = {
-          health_record_id: healthId,
-          health_record: pm.health_record,
-          monitoring_records: []
-        };
-      }
-
-      acc[healthId].monitoring_records.push({
-        ...pm,
-        health_record: undefined // avoid duplication
-      });
-
-      return acc;
-    }, {});
-
-    res.json(Object.values(groupedData));
+    res.json(pregnancy_monitoring);
   } catch (err) {
     if (err instanceof Error) {
       res.status(500).json({ error: err.message });
@@ -131,17 +85,29 @@ export const updatePregnancy_monitoring = async (req: Request, res: Response): P
   try {
     const pregnancy_monitoring = await prisma.pregnancy_monitoring.update({
       where: { id: req.params.id },
-      data: req.body,
-    })
-    res.json(pregnancy_monitoring)
+      data: {
+        ...req.body,
+        pregnancy_start_date: req.body.pregnancy_start_date
+          ? new Date(req.body.pregnancy_start_date)
+          : null,
+        expected_delivery_date: req.body.expected_delivery_date
+          ? new Date(req.body.expected_delivery_date)
+          : null,
+        last_checkup: req.body.last_checkup
+          ? new Date(req.body.last_checkup)
+          : null,
+      },
+    });
+
+    res.json(pregnancy_monitoring);
   } catch (err) {
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
 
 /* DELETE */
 export const deletePregnancy_monitoring = async (req: Request, res: Response): Promise<void> => {

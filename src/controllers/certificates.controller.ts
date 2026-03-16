@@ -93,6 +93,7 @@ export const getResidentCertificates = async (
         requestType: cert.requestType,
         timestamp: cert.timestamp,
         
+        
 
       }))
     )

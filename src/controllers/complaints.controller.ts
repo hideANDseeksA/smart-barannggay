@@ -44,7 +44,9 @@ export const createComplaints = async (
   }
 }
 
-/* READ ALL */export const getcomplaints = async (
+/* READ ALL */
+
+export const getcomplaints = async (
   _req: Request,
   res: Response
 ): Promise<void> => {
@@ -67,16 +69,31 @@ export const createComplaints = async (
       },
     });
 
-    // 🔹 Initialize monthly resolved count
+    // Monthly resolved count
     const monthlyResolvedCount: Record<string, number> = {
       Jan: 0, Feb: 0, Mar: 0, Apr: 0,
       May: 0, Jun: 0, Jul: 0, Aug: 0,
       Sep: 0, Oct: 0, Nov: 0, Dec: 0,
     };
 
+    // 🔹 Status counts
+    const statusCounts = {
+      pending: 0,
+      on_process: 0,
+      resolved: 0,
+      declined: 0,
+    };
+
     const result = await Promise.all(
       complaints.map(async (comp) => {
-        // 🔹 Count resolved complaints by month (ALL years)
+
+        // Count status
+        if (comp.status === "pending") statusCounts.pending++;
+        if (comp.status === "on process") statusCounts.on_process++;
+        if (comp.status === "resolved") statusCounts.resolved++;
+        if (comp.status === "declined") statusCounts.declined++;
+
+        // Count resolved per month
         if (comp.status === "resolved") {
           const month = comp.created_at.toLocaleString("en-US", {
             month: "short",
@@ -84,7 +101,7 @@ export const createComplaints = async (
           monthlyResolvedCount[month]++;
         }
 
-        // 🔹 Decrypt resident names
+        // Decrypt resident names
         if (comp.resident) {
           comp.resident.f_name =
             comp.resident.f_name && decrypt(comp.resident.f_name);
@@ -95,12 +112,9 @@ export const createComplaints = async (
         }
 
         comp.complaint_type =
-        comp.complaint_type && decrypt(comp.complaint_type);
-         comp.description =
-        comp.description && decrypt(comp.description);
-        
-
-        
+          comp.complaint_type && decrypt(comp.complaint_type);
+        comp.description =
+          comp.description && decrypt(comp.description);
 
         return {
           ...comp,
@@ -111,10 +125,11 @@ export const createComplaints = async (
       })
     );
 
-    // 🔹 Final response
     res.json({
       complaints: result,
       monthlyResolvedCount,
+      statusCounts,
+      totalComplaints: complaints.length,
     });
   } catch (err) {
     console.error(err);

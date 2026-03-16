@@ -324,3 +324,6 @@ Below is a detailed description of all the routes available in the project:
 
 Repeat this structure for all other routes in the project, ensuring each route is clearly documented with its purpose, parameters, responses, and authentication requirements.
 ```
+
+
+

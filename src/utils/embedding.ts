@@ -19,18 +19,7 @@ async function loadEmbedder(): Promise<FeatureExtractionPipeline> {
   return embedder;
 }
 
-/**
- * Render a blotter complaint object into semantically rich text for embedding.
- *
- * ⚠️  NAMES ARE INTENTIONALLY EXCLUDED (name1, name2, complainant, accused).
- * Person names are semantically meaningless to the model — they dilute the
- * vector and cause unrelated records to score higher than they should.
- * The embedding captures WHAT HAPPENED only. Name-based lookup should be
- * done via exact DB filtering, not vector search.
- *
- * Key concepts are repeated intentionally — BGE-M3 uses mean pooling,
- * so repetition raises a term's average contribution to the final vector.
- */
+
 export function renderBlotterForEmbedding(details: any): string {
   if (!details || typeof details !== "object") return "";
 

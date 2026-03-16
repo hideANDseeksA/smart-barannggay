@@ -10,7 +10,7 @@ import { decryptFields } from "../middleware/decrypt.middleware"
 import { encryptFields } from "../middleware/encrypt.middleware"
 
 const router = express.Router()
-const SENSITIVE_FIELDS =["complications","checkup_notes"]
+const SENSITIVE_FIELDS =["details"]
 
 /**
  * @swagger

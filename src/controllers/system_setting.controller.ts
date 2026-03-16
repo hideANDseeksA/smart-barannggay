@@ -3,6 +3,7 @@ import prisma from "../prisma"
 import { uploadToSupabase } from "../utils/supabaseUpload.util"
 import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import { deleteFromSupabase } from "../utils/supabaseDelete.util"
+import { apiCache } from "../utils/apiCache"
 
 /* =========================================
    CREATE OR UPDATE (UPSERT – SINGLETON)
@@ -89,7 +90,7 @@ export const upsertsystem_setting = async (
         residentNumber: 1,
       },
     })
-
+    apiCache.clearAll();
     res.status(200).json(system_setting)
   } catch (err) {
     if (err instanceof Error) {
@@ -109,31 +110,34 @@ export const getsystem_setting = async (
   res: Response
 ): Promise<void> => {
   try {
-    const setting = await prisma.system_setting.findUnique({
-      where: { id: 1 },
-    })
+    const result = await apiCache.get(
+      "system_setting",
+      async () => {
+        const setting = await prisma.system_setting.findUnique({
+          where: { id: 1 },
+        });
 
-    if (!setting) {
-      res.status(200).json(null)
-      return
-    }
+        if (!setting) return null;
 
-    const result = {
-      ...setting,
-      logo_url: setting.logo_url
-        ? await generateSignedUrl(setting.logo_url, 60 *60* 5)
-        : null,
-    }
+        return {
+          ...setting,
+          logo_url: setting.logo_url
+            ? await generateSignedUrl(setting.logo_url, 60 * 60 * 5)
+            : null,
+        };
+      },
+      60 * 60 * 24 // 24 hours cache
+    );
 
-    res.status(200).json(result)
+    res.status(200).json(result);
   } catch (err) {
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
 
 /* =========================================
    DELETE (OPTIONAL – USE WITH CARE)

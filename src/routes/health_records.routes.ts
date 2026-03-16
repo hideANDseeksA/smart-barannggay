@@ -3,6 +3,7 @@ import {
     createHealth_record,
     getHealth_records,
     getHealth_recordById,
+    getHealth_recordsByResidentId,
     updateHealth_record,
     deleteHealth_record,
 } from "../controllers/health_records.controller"
@@ -10,7 +11,7 @@ import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware"
 
 const router = express.Router()
-const SENSITIVE_FIELDS = ["blood_type","allergies","chronic_conditions"];
+const SENSITIVE_FIELDS = ["details"];
 /**
  * @swagger
  * tags:
@@ -89,7 +90,7 @@ router.get("/", decryptFields(SENSITIVE_FIELDS), getHealth_records)
  *       404:
  *         description: Health record not found
  */
-router.get("/:id", decryptFields(SENSITIVE_FIELDS), getHealth_recordById)
+router.get("/:id", decryptFields(SENSITIVE_FIELDS), getHealth_recordsByResidentId)
 
 /**
  * @swagger
