@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "studio": "prisma studio",
-    "prebuild": "npm run download:model"
+    "download:model": "node dist/scripts/download-model.js"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",
