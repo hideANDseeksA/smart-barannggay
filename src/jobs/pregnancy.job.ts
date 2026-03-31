@@ -1,5 +1,5 @@
 import cron from "node-cron"
-import { updateTrimesterService } from "../../src/service/pregnancy.service"
+import { updateTrimesterService } from "../service/pregnancy.service"
 
 /**
  * Runs automatically in background
