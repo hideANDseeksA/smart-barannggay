@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
+import { apiCache } from "../utils/apiCache"
 
 /* CREATE */
 export const createPurok = async (req: Request, res: Response): Promise<void> => {
@@ -7,6 +8,7 @@ export const createPurok = async (req: Request, res: Response): Promise<void> =>
     const purok = await prisma.purok.create({
       data: req.body,
     })
+    apiCache.clear("puroks_all"); // ❗ invalidate cache
     res.status(201).json(purok)
   } catch (err) {
     if (err instanceof Error) {
@@ -20,16 +22,19 @@ export const createPurok = async (req: Request, res: Response): Promise<void> =>
 /* READ ALL */
 export const getPurok = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const puroks = await prisma.purok.findMany()
-    res.json(puroks)
+    const puroks = await apiCache.get("puroks_all", async () => {
+      return await prisma.purok.findMany();
+    }, 60 * 60 * 24); // 24 hours cache
+
+    res.json(puroks);
   } catch (err) {
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
 
 
 
@@ -40,6 +45,7 @@ export const updatePurok = async (req: Request, res: Response): Promise<void> =>
       where: { id: req.params.id },
       data: req.body,
     })
+    apiCache.clear("puroks_all"); // ❗ invalidate cache
     res.json(purok)
   } catch (err) {
     if (err instanceof Error) {
@@ -56,6 +62,7 @@ export const deletePurok = async (req: Request, res: Response): Promise<void> =>
     await prisma.purok.delete({
       where: { id: req.params.id },
     })
+    apiCache.clear("puroks_all"); // ❗ invalidate cache
     res.json({ message: "purok deleted successfully" })
   } catch (err) {
     if (err instanceof Error) {

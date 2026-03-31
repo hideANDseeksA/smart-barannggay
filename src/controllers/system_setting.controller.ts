@@ -122,7 +122,7 @@ export const getsystem_setting = async (
         return {
           ...setting,
           logo_url: setting.logo_url
-            ? await generateSignedUrl(setting.logo_url, 60 * 60 * 5)
+            ? await generateSignedUrl(setting.logo_url, 60 * 60 * 24)
             : null,
         };
       },

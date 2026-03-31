@@ -123,11 +123,11 @@ export const searchBlotters = async (req: Request, res: Response) => {
         file_path,
         created_at,
         updated_at,
-        1 - (embeddings <=> ${vectorLiteral}::vector) AS score
+        1 - (embeddings <=> ${vectorLiteral}::"smart-barangay".vector) AS score
       FROM "smart-barangay".blotter
       WHERE embeddings IS NOT NULL
-        AND (1 - (embeddings <=> ${vectorLiteral}::vector)) >= ${Number(threshold)}
-      ORDER BY embeddings <=> ${vectorLiteral}::vector
+        AND (1 - (embeddings <=> ${vectorLiteral}::"smart-barangay".vector)) >= ${Number(threshold)}
+      ORDER BY embeddings <=> ${vectorLiteral}::"smart-barangay".vector
       LIMIT ${Number(limit)}
     `;
 

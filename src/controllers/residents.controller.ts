@@ -165,6 +165,9 @@ export const getResidents = async (
   registeredCount,
 ] = await Promise.all([
   prisma.residents.findMany({
+     where: { remarks: {
+      not:"archive"
+     } },
     skip,
     take: limit,
     include: {

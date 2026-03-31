@@ -1,20 +1,18 @@
-import { pipeline, FeatureExtractionPipeline } from "@xenova/transformers";
+import { pipeline, env, FeatureExtractionPipeline } from "@xenova/transformers";
+import path from "path";
+
+// Always read from local cache — never hit HuggingFace at runtime
+env.cacheDir = path.resolve(process.cwd(), "models");
+env.allowRemoteModels = false; // hard fail if model is missing
+env.allowLocalModels = true;
 
 let embedder: FeatureExtractionPipeline | null = null;
 
-/**
- * Load and cache BGE-M3 (1024 dimensions).
- * Best model for Tagalog / Taglish semantic search.
- * Handles code-switching naturally (e.g. "nag-away", "ginahasa", "nagnakaw").
- */
 async function loadEmbedder(): Promise<FeatureExtractionPipeline> {
   if (!embedder) {
-    console.log("🔄 Loading BAAI/bge-m3 (1024d)...");
-    embedder = await pipeline(
-      "feature-extraction",
-      "Xenova/bge-m3"
-    );
-    console.log("✅ BAAI/bge-m3 loaded");
+    console.log("🔄 Loading BAAI/bge-m3 from local cache...");
+    embedder = await pipeline("feature-extraction", "Xenova/bge-m3");
+    console.log("✅ BAAI/bge-m3 ready");
   }
   return embedder;
 }
@@ -25,7 +23,7 @@ export function renderBlotterForEmbedding(details: any): string {
 
   const complaintType    = details.complaint_type?.trim()    || "";
   const complaintDetails = details.complaint_details?.trim() || "";
-  const location         = details.location?.trim()          || "";
+
 
   if (!complaintType && !complaintDetails) return "";
 
@@ -34,7 +32,6 @@ export function renderBlotterForEmbedding(details: any): string {
     `Complaint type: ${complaintType}.`,
     `Offense category: ${complaintType}.`,                    // repeated for mean-pool weight
     complaintDetails ? `Incident details: ${complaintDetails}` : "",
-    location         ? `Location of incident: ${location}.`  : "",
     `This barangay blotter case involves ${complaintType}.`,  // closing semantic anchor
   ]
     .filter(Boolean)

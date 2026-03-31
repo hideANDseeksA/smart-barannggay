@@ -24,7 +24,7 @@ import NotificationRoutes from "./routes/notification.routes";
 import AnalyticsRoutes from "./routes/analytics.routes";
 import { initSocket } from "./socket/index";
 import http from "http"
-
+import "./jobs/pregnancy.job"
 
 dotenv.config();
 
@@ -32,7 +32,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://front-end-thesis-vert.vercel.app"],
+    origin: ["http://localhost:5173", "https://front-end-thesis-vert.vercel.app","http://192.168.8.36:5173"],
     credentials: true,              
   })
 );
