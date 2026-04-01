@@ -72,7 +72,7 @@ router.get("/user/:id",
    getTransactionByIds)
 
 
-router.put("/:id",
+router.patch("/:id",
     authenticate,
   rbac("admin", "staff", "resident"),
    updateTransaction)

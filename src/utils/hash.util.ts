@@ -27,3 +27,9 @@ export const compareHash = async (
 export const hashEmail = (email: string): string => {
   return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex");
 };
+
+
+
+export const hashlastName = (lastName: string): string => {
+  return crypto.createHash("sha256").update(lastName.toLowerCase().trim()).digest("hex");
+}

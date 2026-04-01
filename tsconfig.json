@@ -3,19 +3,21 @@
     "target": "ES2020",
     "module": "CommonJS",
     "moduleResolution": "node",
-
     "rootDir": "src",
     "outDir": "dist",
-
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-        "experimentalDecorators": true,   // <-- enable decorators
-    "emitDecoratorMetadata": true,    // <-- required for tsoa
-    "resolveJsonModule": true,   
-      "allowJs": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "verbatimModuleSyntax": false,
 
-    "verbatimModuleSyntax": false
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    }
   },
   "include": ["src/**/*.ts", "prisma.config.ts", "src/prisma.ts"],
   "exclude": ["node_modules"]

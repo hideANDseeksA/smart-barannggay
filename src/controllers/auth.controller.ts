@@ -8,26 +8,37 @@ import {
 import { hashEmail } from "../utils/hash.util";
 import { decryptAll } from "../utils/crypto.util";
 import { verifyGoogleToken } from "../utils/googleAuth.util";
-
+import axios from "axios";
 export const googleLogin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token } = req.body; // Google ID token from frontend
+    const { token } = req.body; // access_token from useGoogleLogin
 
     if (!token) {
       res.status(400).json({ error: "Token is required" });
       return;
     }
 
-    const payload = await verifyGoogleToken(token);
+    // Get Google user info using the access token
+    const googleResponse = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const payload = googleResponse.data;
 
     if (!payload?.email) {
       res.status(401).json({ error: "Invalid Google token" });
       return;
     }
 
+    const email = String(payload.email).toLowerCase();
+    const hashedEmail = hashEmail(email);
 
-       const hashedEmail = hashEmail(payload.email.toLowerCase());
-    // 🔹 Find resident by email
+    // Find resident by hashed email
     const resident = await prisma.residents.findUnique({
       where: { h_email_address: hashedEmail },
     });
@@ -37,7 +48,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // 🔹 Find or create user
+    // Find or create user
     let user = await prisma.user.findUnique({
       where: { resident_id: resident.id },
     });
@@ -47,41 +58,41 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
         data: {
           resident_id: resident.id,
           verified: true,
-          // store Google sub as reference
-          // google_id: payload.sub // optional
+          // optional:
+          // google_id: payload.sub,
+          // auth_provider: "google",
         },
       });
     }
 
-    // 🔹 Prepare JWT payload
+    const firstName = decryptAll(resident.f_name);
+    const lastName = decryptAll(resident.l_name);
+
     const jwtPayload = {
       id: user.id,
       role: user.role,
       resident_id: user.resident_id,
       data: {
-        resident_name: decryptAll(resident.f_name) + " " + decryptAll(resident.l_name),
-        resident_email: payload.email.toLowerCase(),
+        resident_name: `${firstName} ${lastName}`,
+        resident_email: email,
         resident_sex: resident.sex,
       },
     };
 
-    // 🔹 Sign tokens
     const accessToken = signAccessToken(jwtPayload);
     const refreshToken = signRefreshToken(jwtPayload);
 
-    // 🔐 Send refresh token as HttpOnly cookie
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIES === "true",
       sameSite: "lax",
       path: "/api",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // ✅ Send access token in JSON
-    res.json({ accessToken });
-  } catch (err) {
-    console.error(err);
+    res.status(200).json({ accessToken });
+  } catch (err: any) {
+    console.error("Google login failed:", err.response?.data || err.message || err);
     res.status(500).json({ error: "Google login failed" });
   }
 };

@@ -4,14 +4,10 @@ import { handlePrismaError } from "../helper/prisma.helper"
 import { decryptAll, safeDecrypt } from "../utils/crypto.util"
 import { calculateAge } from "../helper/agecalculator.helper"
 import { Prisma } from "@prisma/client"
-import csv from "csv-parser";
-import { Readable } from "stream";
-import { csvToResidentBulkMapper } from "../utils/csvMapper";
-import { generateBulkResidentIds } from "../utils/bulkResidentIdGenerator";
 import { lowercaseDeep } from "../helper/lowercase.helper"
-import { hashEmail } from "../utils/hash.util"
+import { hashEmail,hashlastName } from "../utils/hash.util"
 
-const BATCH_SIZE = 500;
+
 /* CREATE */
 export const createResident = async (
   req: Request<{}, {}, Prisma.residentsCreateInput>,
@@ -24,11 +20,15 @@ export const createResident = async (
       ?  hashEmail(safeDecrypt(req.body.email_address.toLowerCase()))
       : null;
 
+    const h_l_name = req.body.l_name      ? hashlastName(safeDecrypt(req.body.l_name.toLowerCase()))
+      : null;
+
     // Prepare data object
     const data = lowercaseDeep({
       ...req.body,
       b_date: req.body.b_date ? new Date(req.body.b_date).toISOString() : null,
       h_email_address,
+      h_l_name,
     });
 
 
@@ -41,113 +41,8 @@ export const createResident = async (
   }
 };
 
-export const createResidentsFromCSV = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    if (!req.file) {
-      res.status(400).json({ message: "CSV file is required" })
-      return
-    }
 
-    // 1️⃣ Fetch all puroks once
-    const puroks = await prisma.purok.findMany({
-      select: { id: true, name: true },
-    })
 
-    const purokMap: Record<string, string> = {}
-    puroks.forEach((p) => {
-      purokMap[p.name.trim()] = p.id
-    })
-
-    const stream = Readable.from(req.file.buffer)
-
-    let buffer: ReturnType<typeof csvToResidentBulkMapper>[] = []
-    let insertedCount = 0
-    let skippedCount = 0
-
-    // 2️⃣ Flush batch function
-    const flush = async () => {
-      if (!buffer.length) return
-
-      // Generate bulk IDs for this batch
-      const ids = await generateBulkResidentIds({ count: buffer.length })
-
-      // Assign IDs to each row
-      const batch = buffer.map((mapped, index) => ({
-        ...mapped,
-        resident_id: ids[index],
-      }))
-
-      // Bulk insert
-      await prisma.residents.createMany({ data: batch })
-
-      insertedCount += batch.length
-      buffer = []
-    }
-
-    // 3️⃣ Stream CSV
-    stream
-      .pipe(csv())
-      .on("data", async (row) => {
-        try {
-          // Map CSV row to DB input
-          const mapped = csvToResidentBulkMapper(row, purokMap)
-
-          // Skip invalid rows
-          if (!mapped.f_name || mapped.f_name === "Unknown") {
-            skippedCount++
-            return
-          }
-
-          buffer.push(mapped)
-
-          // Flush batch if size reached
-          if (buffer.length >= BATCH_SIZE) {
-            stream.pause()
-            await flush()
-            stream.resume()
-          }
-        } catch (err) {
-          skippedCount++
-          console.error("Row skipped:", row, err)
-        }
-      })
-      .on("end", async () => {
-        try {
-          // Flush remaining rows
-          await flush()
-
-          if (!insertedCount) {
-            res.status(400).json({
-              message: "No valid rows were inserted",
-              skippedCount,
-            })
-            return
-          }
-
-          res.status(201).json({
-            message: "Residents imported successfully",
-            insertedCount,
-            skippedCount,
-          })
-        } catch (err) {
-          console.error(err)
-          res.status(500).json({ message: "Failed to insert residents" })
-        }
-      })
-      .on("error", (err) => {
-        console.error(err)
-        res.status(500).json({ message: "Error reading CSV file" })
-      })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: "Internal server error" })
-  }
-};
-
-/* READ ALL */
 export const getResidents = async (
   req: Request,
   res: Response
@@ -155,85 +50,197 @@ export const getResidents = async (
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.max(Number(req.query.limit) || 50, 1);
-
     const skip = (page - 1) * limit;
 
-   const [
-  residents,
-  total,
-  employmentCounts,
-  registeredCount,
-] = await Promise.all([
-  prisma.residents.findMany({
-     where: { remarks: {
-      not:"archive"
-     } },
-    skip,
-    take: limit,
-    include: {
-      purok: {
-        select: { name: true },
+    const search = String(req.query.search || "").trim();
+    const purokId = String(req.query.purok_id || "").trim();
+
+    const hashedLastName = search ? hashlastName(search) : null;
+    const hashedEmail = search ? hashEmail(search) : null;
+
+    const baseWhere = {
+      AND: [
+        {
+          OR: [
+            { remarks: null },
+            {
+              remarks: {
+                not: "archive",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const listWhereCondition: any = {
+      AND: [
+        ...baseWhere.AND,
+
+        ...(purokId
+          ? [
+              {
+                purok_id: purokId,
+              },
+            ]
+          : []),
+
+        ...(search
+          ? [
+              {
+                OR: [
+                  {
+                    resident_id: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    h_l_name: {
+                      equals: hashedLastName,
+                    },
+                  },
+                  {
+                    h_email_address: {
+                      equals: hashedEmail,
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    };
+
+    const summaryWhereCondition: any = {
+      AND: [
+        ...baseWhere.AND,
+
+        ...(purokId
+          ? [
+              {
+                purok_id: purokId,
+              },
+            ]
+          : []),
+      ],
+    };
+
+    const [
+      residents,
+      total,
+      employmentCounts,
+      votingCounts,
+      purokGroups,
+    ] = await Promise.all([
+      prisma.residents.findMany({
+        where: listWhereCondition,
+        skip,
+        take: limit,
+        include: {
+          purok: {
+            select: { name: true },
+          },
+        },
+        orderBy: {
+          times_tamp: "desc",
+        },
+      }),
+
+      prisma.residents.count({
+        where: listWhereCondition,
+      }),
+
+      prisma.residents.groupBy({
+        by: ["emp_status"],
+        where: summaryWhereCondition,
+        _count: { emp_status: true },
+      }),
+
+      prisma.residents.groupBy({
+        by: ["voting_status"],
+        where: summaryWhereCondition,
+        _count: { voting_status: true },
+      }),
+
+      prisma.residents.groupBy({
+        by: ["purok_id"],
+        where: summaryWhereCondition,
+        _count: { purok_id: true },
+      }),
+    ]);
+
+    const purokIds = purokGroups
+      .map((item) => item.purok_id)
+      .filter((id): id is string => Boolean(id));
+
+    const puroks = purokIds.length
+      ? await prisma.purok.findMany({
+          where: {
+            id: {
+              in: purokIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
+
+    const purokMap = new Map(puroks.map((p) => [p.id, p.name]));
+
+    const purokCountSummary = purokGroups.reduce(
+      (acc: Record<string, number>, curr) => {
+        const purokName = curr.purok_id
+          ? purokMap.get(curr.purok_id) || "Unknown"
+          : "Unknown";
+
+        acc[purokName] = curr._count.purok_id ?? 0;
+        return acc;
       },
-    },
-  }),
+      {}
+    );
 
-  prisma.residents.count(),
+    const decryptedResidents = decryptAll(residents);
 
-  prisma.residents.groupBy({
-    by: ["emp_status"],
-    _count: { emp_status: true },
-  }),
+    const residentsWithAge = decryptedResidents.map((resident: any) => ({
+      ...resident,
+      age: calculateAge(resident.b_date),
+    }));
 
-  prisma.residents.groupBy({
-    by: ["voting_status"],
-    _count: { voting_status: true },
-  }),
-]);
+    const empStatusSummary = employmentCounts.reduce(
+      (acc: Record<string, number>, curr) => {
+        const key = curr.emp_status || "unknown";
+        acc[key] = curr._count.emp_status;
+        return acc;
+      },
+      {}
+    );
 
-// Map purok counts manually
-const purokCountSummary: Record<string, number> = {};
-residents.forEach((resident: any) => {
-  const purokName = resident.purok?.name || "Unknown";
-  purokCountSummary[purokName] = (purokCountSummary[purokName] || 0) + 1;
-});
+    const votingStatusSummary = votingCounts.reduce(
+      (acc: Record<string, number>, curr) => {
+        const key = curr.voting_status || "unknown";
+        acc[key] = curr._count.voting_status;
+        return acc;
+      },
+      {}
+    );
 
-// Decrypt + add age
-const decryptedResidents = decryptAll(residents);
-const residentsWithAge = decryptedResidents.map((resident: any) => ({
-  ...resident,
-  age: calculateAge(resident.b_date),
-}));
-
-// Employment summary
-const empStatusSummary = employmentCounts.reduce(
-  (acc: any, curr: any) => {
-    acc[curr.emp_status] = curr._count.emp_status;
-    return acc;
-  },
-  {}
-);
-
-// Voting summary
-const votingStatusSummary = registeredCount.reduce(
-  (acc: any, curr: any) => {
-    acc[curr.voting_status] = curr._count.voting_status;
-    return acc;
-  },
-  {}
-);
-
-res.json({
-  residents: residentsWithAge,
-  meta: {
-    page,
-    limit,
-    total,
-    registeredCount: votingStatusSummary,
-    employmentSummary: empStatusSummary,
-    purokCounts: purokCountSummary, // now keyed by purok name
-    totalPages: Math.ceil(total / limit),
-  },
-});
+    res.json({
+      residents: residentsWithAge,
+      meta: {
+        page,
+        limit,
+        total,
+        search,
+        purok_id: purokId || null,
+        registeredCount: votingStatusSummary,
+        employmentSummary: empStatusSummary,
+        purokCounts: purokCountSummary,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     handlePrismaError(err, res);
   }
@@ -390,12 +397,16 @@ export const updateResident = async (req: Request, res: Response): Promise<void>
       ?  hashEmail(safeDecrypt(req.body.email_address.toLowerCase()))
       : null;
 
+    const h_l_name = req.body.l_name      ? hashlastName(safeDecrypt(req.body.l_name.toLowerCase()))
+      : null;
+
 
     
     const data = lowercaseDeep({
       ...req.body,
       b_date: req.body.b_date ? new Date(req.body.b_date).toISOString() : null,
       h_email_address,
+      h_l_name,
     });
 
     const resident = await prisma.residents.update({
