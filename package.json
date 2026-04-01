@@ -9,6 +9,9 @@
     "studio": "prisma studio",
     "download:model": "node dist/scripts/download-model.js"
   },
+  "_moduleAliases": {
+  "@": "dist"
+},
   "dependencies": {
     "@prisma/client": "^6.12.0",
     "@supabase/supabase-js": "^2.89.0",
