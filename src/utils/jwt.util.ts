@@ -34,7 +34,11 @@ export const signAccessToken = (payload: JwtPayload) =>
     expiresIn: "15m",
   });
 
-export const signRefreshToken = (payload: JwtPayload) =>
-  jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET!, {
-    expiresIn: "7d",
-  });
+// utils/jwt.util.ts — change only the refresh token signer
+export const signRefreshToken = (payload: { id: string }) => {
+  return jwt.sign(
+    { sub: payload.id },  // ← identity only
+    process.env.REFRESH_TOKEN_SECRET!,
+    { expiresIn: "7d" }
+  );
+};

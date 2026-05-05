@@ -326,4 +326,11 @@ Repeat this structure for all other routes in the project, ensuring each route i
 ```
 
 
+// add this in package json in deployment
+ "_moduleAliases": {
+  "@": "dist"
+},
 
+
+// add this in server.ts in deployement
+import "module-alias/register"

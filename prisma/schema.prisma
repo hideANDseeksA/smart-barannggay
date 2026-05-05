@@ -44,7 +44,7 @@ model residents {
   email_address          String?
   contact_no             String?
   b_date                 DateTime?         @db.Date
-  sex                    Sex               @default(male)
+  sex                    Sex               @default(male) 
   purok_id               String?           @db.Uuid
   blood_type             String?
   civil_status           Civil?
@@ -56,7 +56,6 @@ model residents {
   blotter                blotter[]
   complaints             complaints[]
   health_records         health_records[]
-  health_referals        health_referals[]
   notifications          notification[]
   purok                  purok?            @relation(fields: [purok_id], references: [id])
   handled_transactions   transaction[]     @relation("HandledTransactions")
@@ -85,7 +84,7 @@ model blotter {
   file_path   String?
   resident_id String                 @db.Uuid
   h_resident  String?
-  embeddings  Unsupported("vector")?
+  case_no     String?                @unique
   resident    residents              @relation(fields: [resident_id], references: [id])
 }
 
@@ -123,19 +122,10 @@ model documents {
   document_type    document_types @relation(fields: [document_type_id], references: [id])
 }
 
-model health_referals {
-  id          String    @id @default(uuid()) @db.Uuid
-  resident_id String    @db.Uuid
-  details     String
-  status      String    @default("pending")
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @default(now())
-  resident    residents @relation(fields: [resident_id], references: [id])
-}
 
 model health_records {
   id          String                 @id @default(uuid()) @db.Uuid
-  resident_id String                 @db.Uuid
+  resident_id String                 @db.Uuid @unique
   fam_no      String?
   weight      Float                  
   height      Float                  
@@ -151,16 +141,16 @@ model health_records {
 
   model pregnancy_monitoring {
     id                     String          @id @default(uuid()) @db.Uuid
-    health_record_id       String?         @db.Uuid
+    health_record_id       String         @db.Uuid
     pregnancy_start_date   DateTime        @db.Date
     expected_delivery_date DateTime        @db.Date
     current_trimester      Int?
     last_checkup           DateTime?       @db.Date
     created_at             DateTime        @default(now())
-    updated_at             DateTime        @default(now())
+    updated_at             DateTime        @updatedAt
     status                 P_status        @default(ongoing)
     details                String?
-    health_record          health_records? @relation(fields: [health_record_id], references: [id])
+    health_record          health_records @relation(fields: [health_record_id], references: [id])
   }
 
 model notification {
@@ -194,6 +184,7 @@ model user {
   verified    Boolean   @default(false)
   role        Role      @default(resident)
   resident    residents @relation(fields: [resident_id], references: [id])
+  last_login  DateTime  @default(now())
 }
 
 enum Role {

@@ -24,7 +24,7 @@ export const createTransaction = async (req: Request, res: Response): Promise<vo
     await sendNotification(transaction.resident_id, "staff", {
       title: "New Certificate Request Submitted",
       message,
-      from: name, // submitted by resident
+      from: name, 
       type: "info",
     });
 
@@ -367,43 +367,45 @@ export const getTransactionByIds = async (
 
 
 
-/* READ ONE */
 export const getTransactionById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const transaction = await prisma.transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
       where: { resident_id: req.params.resident_id },
       include: {
         certificate: {
           select: {
             template_name: true,
-            template_price: true
+            template_price: true,
           },
         },
       },
-    })
-
-    if (!transaction) {
-      res.status(404).json({ message: "Transaction not found" })
-      return
-    }
-
-    transaction.forEach(tx => {
-      if (tx.certificate) {
-        tx.certificate.template_name = safeDecrypt(tx.certificate.template_name);
-      }
     });
 
-    res.status(200).json(transaction);
+    if (transactions.length === 0) {
+      res.status(404).json({ message: "Transaction not found" });
+      return;
+    }
 
+    const decryptedTransactions = transactions.map((tx) => ({
+      ...tx,
+      certificate: tx.certificate
+        ? {
+            ...tx.certificate,
+            template_name: safeDecrypt(tx.certificate.template_name),
+          }
+        : null,
+    }));
+
+    res.status(200).json(decryptedTransactions);
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Unknown error occurred",
-    })
+    });
   }
-}
+};
 
 /* UPDATE */
 export const updateTransaction = async (req: Request, res: Response): Promise<void> => {
@@ -428,11 +430,11 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
     if (status === "approved") {
       const formattedDate = transaction.appointment_date
         ? transaction.appointment_date.toLocaleDateString("en-PH", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
         : "a scheduled date";
       message = `Your certificate request has been formally approved by ${handler_name}. The appointment is set for ${formattedDate}. Please check your account for further details.`;
     } else if (status === "declined") {
@@ -460,6 +462,57 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
 };
 
 
+export const cancelTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const existingTransaction = await prisma.transaction.findUnique({
+      where: { id: req.params.id },
+      include: {
+        resident: {
+          select: {
+            f_name: true,
+            l_name: true,
+          },
+        },
+      },
+    });
+
+    if (!existingTransaction) {
+      res.status(404).json({ error: "Transaction not found" });
+      return;
+    }
+
+    if (["completed", "declined"].includes(existingTransaction.status)) {
+      res.status(400).json({ error: "Cannot cancel this transaction" });
+      return;
+    }
+
+    const transaction = await prisma.transaction.update({
+      where: { id: req.params.id },
+      data: {
+        status: "cancelled",
+      },
+    });
+
+    const residentName = `${safeDecrypt(existingTransaction.resident.f_name)} ${safeDecrypt(existingTransaction.resident.l_name)}`;
+
+    await sendNotification(transaction.resident_id, "staff", {
+      title: "Transaction Cancelled",
+      message: `${residentName} has cancelled their certificate request.`,
+      from: residentName,
+      type: "warning",
+    });
+
+    res.json({
+      message: "Transaction cancelled successfully",
+      transaction,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+};
 /* DELETE */
 export const deleteTransaction = async (req: Request, res: Response): Promise<void> => {
   try {

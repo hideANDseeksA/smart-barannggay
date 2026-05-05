@@ -1,8 +1,10 @@
 // middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../prisma";
+import { decryptAll } from "../utils/crypto.util";
+import { signAccessToken } from "../utils/jwt.util";
 
-// 🔹 Support all roles your app uses
 type Role = "admin" | "staff" | "resident" | "healthworker";
 
 export interface AuthRequest extends Request {
@@ -12,9 +14,6 @@ export interface AuthRequest extends Request {
   };
 }
 
-/**
- * Middleware to protect routes with Access Token (Bearer)
- */
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
@@ -25,44 +24,97 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET!) as AuthRequest["user"];
+    const decoded = jwt.verify(
+      token,
+      process.env.ACCESS_TOKEN_SECRET!
+    ) as AuthRequest["user"];
     req.user = decoded;
     next();
   } catch (err) {
-    console.error("Access token verification failed:", err);
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 };
 
-/**
- * Route handler to refresh Access Token using HttpOnly refresh cookie
- */
-export const refreshAccessToken = (req: Request, res: Response) => {
+interface RefreshPayload {
+  sub?: string;
+  id?: string;   // legacy shim — remove after 7 days
+  iat: number;
+  exp: number;
+}
+
+export const refreshAccessToken = async (req: Request, res: Response) => {
   const refreshToken = req.cookies?.refresh_token;
 
   if (!refreshToken) {
     return res.status(401).json({ error: "Refresh token missing" });
   }
 
+  let payload: RefreshPayload;
+
   try {
-    // ✅ Decode full refresh payload
-    const payload = jwt.verify(
+    payload = jwt.verify(
       refreshToken,
       process.env.REFRESH_TOKEN_SECRET!
-    ) as any;
+    ) as RefreshPayload;
+  } catch (err) {
+    res.clearCookie("refresh_token");
+    return res.status(401).json({ error: "Invalid or expired refresh token" });
+  }
 
-    // ❗ Remove JWT internal fields before re-signing
-    const { iat, exp, ...cleanPayload } = payload;
+  // ✅ Shim: handles old full-payload tokens and new sub-only tokens
+  const userId = payload.sub ?? payload.id;
 
-    const newAccessToken = jwt.sign(
-      cleanPayload,
-      process.env.ACCESS_TOKEN_SECRET!,
-      { expiresIn: "15m" }
-    );
+  if (!userId) {
+    res.clearCookie("refresh_token");
+    return res.status(401).json({ error: "Malformed token payload" });
+  }
+
+  try {
+    // ✅ Always reload from DB — catches deleted users, role changes, unverified
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        verified: true,
+        resident_id: true,
+        resident: {
+          select: {
+            f_name: true,
+            l_name: true,
+            h_email_address: true,
+            sex: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res.clearCookie("refresh_token");
+      return res.status(401).json({ error: "User no longer exists" });
+    }
+
+    if (!user.verified) {
+      res.clearCookie("refresh_token");
+      return res.status(403).json({ error: "Account is not verified" });
+    }
+
+    // ✅ Rebuild the full payload from live DB data
+    const freshPayload = {
+      id: user.id,
+      role: user.role,
+      resident_id: user.resident_id,
+      data: {
+        resident_name: `${decryptAll(user.resident.f_name)} ${decryptAll(user.resident.l_name)}`,
+        resident_sex: user.resident.sex,
+      },
+    };
+
+    const newAccessToken = signAccessToken(freshPayload);
 
     res.json({ accessToken: newAccessToken });
   } catch (err) {
-    console.error("Refresh token verification failed:", err);
-    res.status(401).json({ error: "Invalid or expired refresh token" });
+    console.error("Token refresh error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
-};
+};  

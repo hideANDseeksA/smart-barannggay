@@ -8,7 +8,8 @@ import {
   updateTransaction,
   deleteTransaction,
     generateTransactionCertificate,
-    getTransactionByIds
+    getTransactionByIds,
+    cancelTransaction,
 } from "../controllers/transaction.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware"
@@ -57,10 +58,10 @@ router.get("/",
 
 
 
-router.get("/:id",
+router.get("/:resident_id",
    decryptFields(SENSITIVE_FIELDS),
-     authenticate,
-     rbac("admin", "staff"),
+      //  authenticate,
+      //  rbac("admin", "staff"),
     getTransactionById)
 
 
@@ -75,8 +76,9 @@ router.get("/user/:id",
 router.patch("/:id",
     authenticate,
   rbac("admin", "staff", "resident"),
-   updateTransaction)
+   updateTransaction);
 
+router.put("/:id/cancel", cancelTransaction);
 
 router.delete("/:id",
     authenticate,

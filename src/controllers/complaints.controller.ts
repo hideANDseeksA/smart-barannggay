@@ -5,44 +5,71 @@ import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import { updateSupabaseFile } from "../utils/supabaseUpdate.util"
 import { deleteFromSupabase } from "../utils/supabaseDelete.util"
 import { decrypt } from "../utils/crypto.util"
+import { sendNotification } from "../service/notification.service"
+import { getResidentById, formatResidentName } from "@/utils/resident.helper";
 
 export const createComplaints = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { resident_id,complaint_type,description,status } = req.body
-    const file = req.file
+    const { resident_id ,complaint_type, description } = req.body;
+    const file = req.file;
 
-    if (!file) {
-      res.status(400).json({ error: "Image is required" })
-      return
+    if (!resident_id || !complaint_type || !description) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
     }
 
-    /* Upload once, reuse everywhere */
+    if (!file) {
+      res.status(400).json({ error: "Image is required" });
+      return;
+    }
+
+    const resident = await getResidentById(resident_id);
+
+    if (!resident) {
+      res.status(404).json({ error: "Resident not found" });
+      return;
+    }
+
+    const name = formatResidentName(resident);
+
     const image_paths = await uploadToSupabase({
       bucket: "complaints",
       file,
-    })
+    });
 
-    const complaints = await prisma.complaints.create({
-        data: {
-            resident_id,
-            complaint_type,
-            description,
-            status,
-            image_paths,
-        },
-    })
+    const complaint = await prisma.complaints.create({
+      data: {
+        resident_id,
+        complaint_type,
+        description,
+        status: "Pending",
+        image_paths,
+      },
+    });
 
-    res.status(201).json(complaints)
+await sendNotification(resident_id, "staff", {
+  title: "New Complaint Submitted",
+  message: `A new complaint has been submitted by ${name}. 
+
+Type: ${complaint_type}
+Details: ${decrypt(description)}
+
+Please review and take the necessary action.`,
+  from: name,
+  type: "info",
+});
+
+    res.status(201).json(complaint);
   } catch (err) {
-    console.error(err)
+    console.error(err);
     res.status(500).json({
       error: err instanceof Error ? err.message : "Unknown error",
-    })
+    });
   }
-}
+};
 
 /* READ ALL */
 
@@ -68,6 +95,7 @@ export const getcomplaints = async (
         },
       },
     });
+
 
     // Monthly resolved count
     const monthlyResolvedCount: Record<string, number> = {
@@ -148,7 +176,7 @@ export const updatecomplaints = async (
 ): Promise<void> => {
   try {
     const { id } = req.params
-     const { resident_id,complaint_type,description,status} = req.body
+     const { handler,status} = req.body
     const file = req.file
 
     // 1️⃣ Find existing complaints
@@ -160,6 +188,14 @@ export const updatecomplaints = async (
       res.status(404).json({ error: "complaints not found" })
       return
     }
+    const handler_name = await getResidentById(handler);
+
+    if (!handler_name) {
+      res.status(404).json({ error: "Resident not found" });
+      return;
+    } 
+
+    const name = formatResidentName(handler_name);
 
     let image_paths = existing.image_paths
 
@@ -176,13 +212,58 @@ export const updatecomplaints = async (
     const updated = await prisma.complaints.update({
       where: { id },
       data: {
-        resident_id,
-        complaint_type,
-        description,
         status,
         image_paths,
       },
     })
+
+let message = "";
+
+if (status === "on review") {
+  message = `Your complaint has been officially received and is currently under review by the Barangay Office.
+
+This matter is being handled by ${name}. We will notify you once the evaluation process has been completed.
+
+Thank you for your patience and cooperation.`;
+}
+
+else if (status === "on action") {
+  message = `Your complaint has been reviewed and is now undergoing appropriate action.
+
+This case is currently being handled by ${name}, who is taking the necessary steps to address your concern.
+
+We appreciate your understanding as we work towards a resolution.`;
+}
+
+else if (status === "resolved") {
+  message = `We are pleased to inform you that your complaint has been successfully resolved by the Barangay Office.
+
+This matter was handled by ${name}. If you have any further concerns or require additional assistance, please feel free to contact the barangay office.
+
+Thank you.`;
+}
+
+else if (status === "declined") {
+  message = `After careful review, your complaint has been declined by the Barangay Office.
+
+This decision was made by ${name}. For further clarification or assistance, you may coordinate directly with the barangay office.
+
+Thank you for your understanding.`;
+}
+
+else {
+  message = `Your complaint status has been updated to "${status}".
+
+This update is being managed by ${name}. Please contact the barangay office if you require further information.`;
+}
+
+await sendNotification(updated.resident_id, "resident", {
+  title: `Your complaint is ${status}`,
+  message: message,
+  from: name,
+  type: "info",
+});
+
 
     res.json(updated)
   } catch (err) {

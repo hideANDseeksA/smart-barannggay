@@ -30,9 +30,9 @@ function capitalizeString(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function uppercaseDeep<T>(obj: T): T {
+export function titleCaseDeep<T>(obj: T): T {
   if (Array.isArray(obj)) {
-    return obj.map(uppercaseDeep) as unknown as T;
+    return obj.map(titleCaseDeep) as unknown as T;
   }
 
   if (obj && typeof obj === "object") {
@@ -41,7 +41,7 @@ export function uppercaseDeep<T>(obj: T): T {
       if (typeof value === "string") {
         newObj[key] = capitalizeString(value);
       } else if (value && typeof value === "object" && !(value instanceof Date)) {
-        newObj[key] = uppercaseDeep(value);
+        newObj[key] = titleCaseDeep(value);
       } else {
         newObj[key] = value;
       }
@@ -56,7 +56,7 @@ export function uppercaseDeep<T>(obj: T): T {
 
 export function uppercaseJson(json: string): string {
   const parsed = JSON.parse(json);
-  const capitalized = uppercaseDeep(parsed);
+  const capitalized = titleCaseDeep(parsed);
   return JSON.stringify(capitalized);
 }
 

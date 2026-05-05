@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
 import { safeDecrypt } from "../utils/crypto.util"
+import { calculateAge } from "../helper/agecalculator.helper"
 
 /* CREATE */
 export const createHealth_record = async (req: Request, res: Response): Promise<void> => {
@@ -79,33 +80,79 @@ res.json(decryptedRecords);
 /* READ ONE */
 export const getHealth_recordById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const health_record = await prisma.health_records.findMany({
-      where: { resident_id: req.params.id },
-    })
+    const { record_id } = req.params;
+
+    const health_record = await prisma.health_records.findUnique({
+      where: {
+        id: record_id,
+      },
+      select: {
+        details: true,
+        bmi:true,
+        height:true,
+        weight:true,
+        resident: {
+          select: {
+            id: true,
+            resident_id: true,
+            f_name: true,
+            m_name: true,
+            md_name: true,
+            l_name: true,
+            s_name: true,
+            house_no: true,
+            b_date: true,
+            sex: true,
+            purok: {
+              select: { name: true }
+            }
+          }
+        }
+      }
+    });
 
     if (!health_record) {
-      res.status(404).json({ message: "health_record not found" })
-      return
+      res.status(404).json({ message: "No data found" });
+      return;
     }
 
-    res.json(health_record)
+    const decryptedRecord = {
+      ...health_record,
+      resident: health_record.resident
+        ? {
+            ...health_record.resident,
+            age:calculateAge(health_record.resident.b_date),
+            f_name: safeDecrypt(health_record.resident.f_name),
+            m_name: safeDecrypt(health_record.resident.m_name),
+            md_name: safeDecrypt(health_record.resident.md_name),
+            l_name: safeDecrypt(health_record.resident.l_name),
+            s_name: safeDecrypt(health_record.resident.s_name),
+            house_no: safeDecrypt(health_record.resident.house_no)
+          }
+        : null
+    };
+
+    res.json(decryptedRecord);
+
   } catch (err) {
     if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
+      res.status(500).json({ error: err.message });
     } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+      res.status(500).json({ error: "Unknown error occurred" });
     }
   }
-}
+};
+
+
 
 export const getHealth_recordsByResidentId = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resident_id } = req.params;
+    const { record_id } = req.params;
 
-    const health_records = await prisma.health_records.findMany({
+    const health_record = await prisma.health_records.findUnique({
       where: {
+        id: record_id,
         resident: {
-          resident_id: resident_id,
           sex: "female"
         }
       },
@@ -131,22 +178,27 @@ export const getHealth_recordsByResidentId = async (req: Request, res: Response)
       }
     });
 
-    const decryptedRecords = health_records.map(record => ({
-      ...record,
-      resident: record.resident
+    if (!health_record) {
+      res.status(404).json({ message: "No data found" });
+      return;
+    }
+
+    const decryptedRecord = {
+      ...health_record,
+      resident: health_record.resident
         ? {
-            ...record.resident,
-            f_name: safeDecrypt(record.resident.f_name),
-            m_name: safeDecrypt(record.resident.m_name),
-            md_name: safeDecrypt(record.resident.md_name),
-            l_name: safeDecrypt(record.resident.l_name),
-            s_name: safeDecrypt(record.resident.s_name),
-            house_no: safeDecrypt(record.resident.house_no)
+            ...health_record.resident,
+            f_name: safeDecrypt(health_record.resident.f_name),
+            m_name: safeDecrypt(health_record.resident.m_name),
+            md_name: safeDecrypt(health_record.resident.md_name),
+            l_name: safeDecrypt(health_record.resident.l_name),
+            s_name: safeDecrypt(health_record.resident.s_name),
+            house_no: safeDecrypt(health_record.resident.house_no)
           }
         : null
-    }));
+    };
 
-    res.json(decryptedRecords);
+    res.json(decryptedRecord);
 
   } catch (err) {
     if (err instanceof Error) {
