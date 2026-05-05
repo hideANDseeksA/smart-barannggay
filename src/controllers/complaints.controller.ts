@@ -6,7 +6,7 @@ import { updateSupabaseFile } from "../utils/supabaseUpdate.util"
 import { deleteFromSupabase } from "../utils/supabaseDelete.util"
 import { decrypt } from "../utils/crypto.util"
 import { sendNotification } from "../service/notification.service"
-import { getResidentById, formatResidentName } from "@/utils/resident.helper";
+import { getResidentById, formatResidentName } from "../utils/resident.helper";
 
 export const createComplaints = async (
   req: Request,
