@@ -7,12 +7,14 @@ import jwt from "jsonwebtoken";
 import { signAccessToken, signRefreshToken } from "../utils/jwt.util";
 import { hashEmail } from "../utils/hash.util";
 import { decryptAll } from "../utils/crypto.util";
-import { emailSchema } from "@/validators/email.validator";
+import { emailSchema } from "../validators/email.validator";
 import { sendMail } from "../helper/mail.helper";
 
 const VERIFY_SECRET = process.env.JWT_VERIFY_SECRET!;
 const RESET_SECRET = process.env.JWT_RESET_SECRET!;
 const FRONTEND_URL = process.env.FRONTEND_URL!;
+
+
 
 const signVerifyToken = (payload: object) => {
   return jwt.sign(payload, VERIFY_SECRET, { expiresIn: "1d" });
@@ -130,7 +132,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIES === "true",
-      sameSite: "lax",
+      sameSite: "none",
       path: "/api",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -392,7 +394,7 @@ export const googleSignup = async (req: Request, res: Response): Promise<void> =
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIES === "true",
-      sameSite: "lax",
+      sameSite: "none",
       path: "/api",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
