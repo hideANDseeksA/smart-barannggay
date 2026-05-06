@@ -36,7 +36,7 @@ const verifyEmailTemplate = (url: string) => `
   <div style="font-family: Arial, sans-serif; line-height: 1.6;">
     <h2>Verify your account</h2>
     <p>Click the button below to verify your account.</p>
-    <a href="${url}" style="display:inline-block;padding:10px 18px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;">
+    <a href="${url}" style="display:inline-block;padding:10px 18px;background:#16a34a;color:#fff;text-decoration:lax;border-radius:6px;">
       Verify Account
     </a>
     <p style="margin-top:16px;">If you did not create this account, you can ignore this email.</p>
@@ -47,7 +47,7 @@ const resetPasswordTemplate = (url: string) => `
   <div style="font-family: Arial, sans-serif; line-height: 1.6;">
     <h2>Reset your password</h2>
     <p>Click the button below to reset your password.</p>
-    <a href="${url}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">
+    <a href="${url}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:lax;border-radius:6px;">
       Reset Password
     </a>
     <p style="margin-top:16px;">This link will expire in 15 minutes.</p>
@@ -132,7 +132,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIES === "true",
-      sameSite: "none",
+      sameSite: "lax",
       path: "/api",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -394,7 +394,7 @@ export const googleSignup = async (req: Request, res: Response): Promise<void> =
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIES === "true",
-      sameSite: "none",
+      sameSite: "lax",
       path: "/api",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });

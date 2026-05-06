@@ -6,25 +6,40 @@ import { generateCertificate } from "../utils/certificates/helper.generateCertif
 import { safeDecrypt, } from "../utils/crypto.util"
 import { getDayWithSuffix } from "../helper/date.helper"
 import { sendNotification } from "../service/notification.service"
-
-
+import { getResidentById,formatResidentName } from "@/utils/resident.helper"
 /* CREATE */
+
 export const createTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, template, ...transactionData } = req.body;
 
-    // Create transaction in the database (exclude 'name' and 'template')
     const transaction = await prisma.transaction.create({
       data: transactionData,
     });
 
-    // Prepare a more formal and detailed notification
-    const message = `Resident ${name} has submitted a request for a "${template}". The request is now awaiting your review. Please take a moment to verify the details and process it when convenient to help ensure the resident receives timely assistance.`;
-    // Send notification to admin/staff
+    const submittedOn = new Date().toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const message =
+      `This is to formally notify you that a new certificate request has been submitted by a resident and is now awaiting your review.\n\n` +
+      `Transaction Details:\n` +
+      `• Transaction ID   : ${transaction.id}\n` +
+      `• Certificate      : ${template}\n` +
+      `• Requested By     : ${name}\n` +
+      `• Status           : Pending\n` +
+      `• Date Submitted   : ${submittedOn}\n\n` +
+      `Please review the request at your earliest convenience to ensure the resident receives timely assistance.`;
+
     await sendNotification(transaction.resident_id, "staff", {
       title: "New Certificate Request Submitted",
       message,
-      from: name, 
+      from: name,
       type: "info",
     });
 
@@ -37,7 +52,6 @@ export const createTransaction = async (req: Request, res: Response): Promise<vo
     }
   }
 };
-
 /* READ ALL */
 export const getOnlineRequest = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -410,7 +424,7 @@ export const getTransactionById = async (
 /* UPDATE */
 export const updateTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { appointment_date, status, handled_by_id, handler_name } = req.body;
+    const { appointment_date, status, handled_by_id} = req.body;
 
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },
@@ -423,32 +437,92 @@ export const updateTransaction = async (req: Request, res: Response): Promise<vo
           handler: handled_by_id,
         }),
       },
+      include: {
+        resident: true,        // gets resident name fields
+        certificate: true,     // gets template_name
+      },
     });
 
-    // Prepare formal notification message
-    let message = "";
+    const resident_name = await getResidentById(transaction.resident_id);
+    const name = formatResidentName(resident_name);
+    const template = safeDecrypt(transaction.certificate.template_name);
+
+
+    const handler = await getResidentById(handled_by_id);
+    const handler_name = formatResidentName(handler);
+
+    const updatedOn = new Date().toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     if (status === "approved") {
       const formattedDate = transaction.appointment_date
         ? transaction.appointment_date.toLocaleDateString("en-PH", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-        : "a scheduled date";
-      message = `Your certificate request has been formally approved by ${handler_name}. The appointment is set for ${formattedDate}. Please check your account for further details.`;
-    } else if (status === "declined") {
-      message = `Your certificate request has been formally declined by ${handler_name}. Please review the details and contact the Barangay Office if needed.`;
-    } else {
-      message = `The status of your certificate request has been updated to '${status}' by ${handler_name}.`;
-    }
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "To Be Determined";
 
-    await sendNotification(transaction.resident_id, "resident", {
-      title: "Certificate Request Update",
-      message,
-      from: "Barangay Office",
-      type: "info",
-    });
+      await sendNotification(transaction.resident_id, "resident", {
+        title: "Certificate Request Approved",
+        message:
+          `This is to formally notify you that your certificate request has been reviewed and approved by the Barangay Office.\n\n` +
+          `Transaction Details:\n` +
+          `• Transaction ID   : ${transaction.id}\n` +
+          `• Certificate      : ${template}\n` +
+          `• Requested By     : ${name}\n` +
+          `• Handled By       : ${handler_name}\n` +
+          `• Status           : Approved\n` +
+          `• Appointment Date : ${formattedDate}\n` +
+          `• Last Updated     : ${updatedOn}\n\n` +
+          `Please be present on your scheduled appointment date and bring any required documents. Contact the Barangay Office if you have any concerns.`,
+        from: "Barangay Office",
+        type: "success",
+      });
+
+    } else if (status === "declined") {
+
+      await sendNotification(transaction.resident_id, "resident", {
+        title: "Certificate Request Declined",
+        message:
+          `This is to formally notify you that your certificate request has been reviewed and declined by the Barangay Office.\n\n` +
+          `Transaction Details:\n` +
+          `• Transaction ID   : ${transaction.id}\n` +
+          `• Certificate      : ${template}\n` +
+          `• Requested By     : ${name}\n` +
+          `• Handled By       : ${handler_name}\n` +
+          `• Status           : Declined\n` +
+          `• Last Updated     : ${updatedOn}\n\n` +
+          `If you believe this is an error or require further clarification, please visit or contact the Barangay Office directly.`,
+        from: "Barangay Office",
+        type: "warning",
+      });
+
+    } else {
+
+      await sendNotification(transaction.resident_id, "resident", {
+        title: "Certificate Request Update",
+        message:
+          `This is to formally notify you that the status of your certificate request has been updated.\n\n` +
+          `Transaction Details:\n` +
+          `• Transaction ID   : ${transaction.id}\n` +
+          `• Certificate      : ${template}\n` +
+          `• Requested By     : ${name}\n` +
+          `• Handled By       : ${handler_name}\n` +
+          `• Status           : ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+          `• Last Updated     : ${updatedOn}\n\n` +
+          `Please check your account for further details or contact the Barangay Office if you have any concerns.`,
+        from: "Barangay Office",
+        type: "info",
+      });
+    }
 
     res.json(transaction);
   } catch (err) {
@@ -473,6 +547,12 @@ export const cancelTransaction = async (req: Request, res: Response): Promise<vo
             l_name: true,
           },
         },
+        certificate: {
+          select: {
+            template_price: true,
+             template_name : true,
+          },
+        },
       },
     });
 
@@ -488,16 +568,46 @@ export const cancelTransaction = async (req: Request, res: Response): Promise<vo
 
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },
-      data: {
-        status: "cancelled",
-      },
+      data: { status: "cancelled" },
     });
 
     const residentName = `${safeDecrypt(existingTransaction.resident.f_name)} ${safeDecrypt(existingTransaction.resident.l_name)}`;
+    const certificateName = safeDecrypt(existingTransaction.certificate.template_name);
+    const certificatePrice = existingTransaction.certificate.template_price
+      ? `₱${existingTransaction.certificate.template_price.toFixed(2)}`
+      : "Free";
+    const transactionId = existingTransaction.id;
+    const requestedOn = existingTransaction.timestamp.toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const cancelledOn = new Date().toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     await sendNotification(transaction.resident_id, "staff", {
-      title: "Transaction Cancelled",
-      message: `${residentName} has cancelled their certificate request.`,
+      title: "Certificate Request Cancelled",
+      message:
+        `This is to formally notify you that the following certificate request has been cancelled by the resident.\n\n` +
+        `Transaction Details:\n` +
+        `• Transaction ID   : ${transactionId}\n` +
+        `• Certificate      : ${certificateName}\n` +
+        `• Fee              : ${certificatePrice}\n` +
+        `• Requested By     : ${residentName}\n` +
+        `• Date Requested   : ${requestedOn}\n` +
+        `• Status           : Cancelled\n` +
+        `• Date Cancelled   : ${cancelledOn}\n\n` +
+        `No further action is required for this transaction. ` +
+        `Should you have any concerns, please coordinate with the resident directly.`,
       from: residentName,
       type: "warning",
     });

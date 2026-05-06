@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../prisma"
+import { Prisma } from "@prisma/client"
 import { safeDecrypt } from "../utils/crypto.util"
 import { calculateAge } from "../helper/agecalculator.helper"
 
@@ -9,15 +10,30 @@ export const createHealth_record = async (req: Request, res: Response): Promise<
     const health_record = await prisma.health_records.create({
       data: req.body,
     })
+
     res.status(201).json(health_record)
+
   } catch (err) {
-    if (err instanceof Error) {
-      res.status(500).json({ error: err.message })
-    } else {
-      res.status(500).json({ error: "Unknown error occurred" })
+    console.error("Error creating health record:", err)
+
+    // ✅ Handle Prisma known errors
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      
+      // Duplicate (UNIQUE constraint)
+      if (err.code === "P2002") {
+        res.status(409).json({
+          error: "Health record already exists for this resident",
+          field: err.meta?.target
+        })
+        return
+      }
     }
+
+    // fallback
+    res.status(500).json({ error: "Internal server error" })
   }
 }
+
 
 /* READ ALL */
 export const getHealth_records = async (_req: Request, res: Response): Promise<void> => {
