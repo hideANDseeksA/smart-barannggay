@@ -82,7 +82,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
           select: {
             f_name: true,
             l_name: true,
-            h_email_address: true,
+            email_address: true,
             sex: true,
           },
         },
@@ -100,16 +100,16 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     }
 
     // ✅ Rebuild the full payload from live DB data
-    const freshPayload = {
-      id: user.id,
-      role: user.role,
-      resident_id: user.resident_id,
-      data: {
-        resident_name: `${decryptAll(user.resident.f_name)} ${decryptAll(user.resident.l_name)}`,
-        resident_sex: user.resident.sex,
-      },
-    };
-
+const freshPayload = {
+  id: user.id,
+  role: user.role,
+  resident_id: user.resident_id,
+  data: {
+    resident_name: `${decryptAll(user.resident.f_name)} ${decryptAll(user.resident.l_name)}`,
+    resident_email: decryptAll(user.resident.email_address), // if encrypted
+    resident_sex: user.resident.sex,
+  },
+};
     const newAccessToken = signAccessToken(freshPayload);
 
     res.json({ accessToken: newAccessToken });

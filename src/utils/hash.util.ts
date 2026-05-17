@@ -33,3 +33,14 @@ export const hashEmail = (email: string): string => {
 export const hashlastName = (lastName: string): string => {
   return crypto.createHash("sha256").update(lastName.toLowerCase().trim()).digest("hex");
 }
+
+
+
+export const hashString = (input: string): string => {
+  const normalized = input
+    .toLowerCase()
+    .replace(/\s+/g, "") // remove ALL whitespace
+    .trim();
+
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+};

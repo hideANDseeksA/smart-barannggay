@@ -14,7 +14,14 @@ const VERIFY_SECRET = process.env.JWT_VERIFY_SECRET!;
 const RESET_SECRET = process.env.JWT_RESET_SECRET!;
 const FRONTEND_URL = process.env.FRONTEND_URL!;
 
-
+// ✅ add it here — at module level, not inside any function
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
+  path: "/api",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+}
 
 const signVerifyToken = (payload: object) => {
   return jwt.sign(payload, VERIFY_SECRET, { expiresIn: "1d" });
@@ -129,13 +136,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     const accessToken = signAccessToken(jwtPayload);
     const refreshToken = signRefreshToken(jwtPayload);
 
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.COOKIES === "true",
-      sameSite: "none",
-      path: "/api",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("refresh_token", refreshToken, cookieOptions);
 
     res.status(200).json({ accessToken });
   } catch (err: any) {
@@ -200,13 +201,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.COOKIES === "true",
-      sameSite: "strict",
-      path: "/api",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("refresh_token", refreshToken, cookieOptions);
 
     res.json({ accessToken });
   } catch (err) {

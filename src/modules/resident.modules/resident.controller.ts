@@ -1,12 +1,12 @@
 import { Request, Response } from "express"
-import prisma from "@/prisma"
+import prisma from "../../prisma"
 
-import { handlePrismaError } from "@/helper/prisma.helper"
-import { decryptAll, safeDecrypt } from "@/utils/crypto.util"
-import { calculateAge } from "@/helper/agecalculator.helper"
+import { handlePrismaError } from "../../helper/prisma.helper"
+import { decryptAll, safeDecrypt } from "../../utils/crypto.util"
+import { calculateAge } from "../../helper/agecalculator.helper"
 import { Prisma } from "@prisma/client"
-import { lowercaseDeep } from "@/helper/lowercase.helper"
-import { hashEmail,hashlastName } from "@/utils/hash.util"
+import { lowercaseDeep } from "../../helper/lowercase.helper"
+import { hashEmail,hashlastName } from "../../utils/hash.util"
 
 
 /* CREATE */

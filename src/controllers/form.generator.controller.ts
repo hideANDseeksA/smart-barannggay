@@ -2,7 +2,7 @@ import { Request, Response } from "express"
 import prisma from "../prisma"
 import { generateSignedUrl } from "../utils/supabaseUrl.util"
 import { generateCertificate } from "../utils/certificates/helper.generateCertificate"
-import { decrypt} from "../utils/crypto.util"
+import { decrypt,decryptAll} from "../utils/crypto.util"
 import { getDayWithSuffix } from "../helper/date.helper"
 
 
@@ -90,7 +90,72 @@ export const generateTransactionCertificate = async (
     })
   }
 }
+export const generateBlotterDocument = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params
 
+    const blotter = await prisma.blotter.findUnique({
+      where: { id },
+    })
+
+    if (!blotter) {
+      res.status(404).json({ error: "Blotter not found" })
+      return
+    }
+
+    if (!blotter.details) {
+      res.status(400).json({ error: "Blotter data missing" })
+      return
+    }
+
+    let blotterData: Record<string, string>
+    try {
+      blotterData = JSON.parse(decryptAll(blotter.details))
+    } catch {
+      res.status(400).json({ error: "Invalid blotter details format" })
+      return
+    }
+
+    // ✅ Convert 24h time to 12h AM/PM format
+    if (blotterData.time) {
+      const [hours, minutes] = blotterData.time.split(":").map(Number);
+      const period = hours >= 12 ? "PM" : "AM";
+      const hour12 = hours % 12 || 12;
+      blotterData.time = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`;
+    }
+
+    const templateUrl = await generateSignedUrl(
+      "blotter/blotter.docx",
+      60 * 5
+    )
+
+    if (!templateUrl) {
+      res.status(500).json({ error: "Failed to generate template URL" })
+      return
+    }
+
+    const buffer = await generateCertificate(templateUrl, blotterData)
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="blotter-${blotter.case_no ?? id}.docx"`
+    )
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    res.send(buffer)
+
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Blotter generation failed",
+    })
+  }
+}
 
 export const createAndGenerateCertificate = async (
   req: Request,
@@ -247,7 +312,7 @@ certificateData.year = year
     // 5️⃣ Mark transaction as completed BEFORE sending file
     await prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status: "ready to claim" },
+      data: { status: "completed" },
     })
 
     // 6️⃣ Send file
@@ -281,3 +346,5 @@ certificateData.year = year
     })
   }
 }
+
+

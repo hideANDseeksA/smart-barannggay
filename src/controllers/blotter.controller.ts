@@ -8,6 +8,8 @@ import { decryptAll } from "../utils/crypto.util";
 import { updateSupabaseFile } from "../utils/supabaseUpdate.util";
 import { apiCache } from "../utils/apiCache";
 import { titleCaseDeep } from "../helper/lowercase.helper";
+import { hashString } from "../utils/hash.util";
+
 
 // ─── CREATE ───────────────────────────────────────────────────────────────────
 
@@ -16,10 +18,16 @@ export const createBlotter = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { resident_id, details, status, h_resident, case_no } = req.body;
+    const { resident_id, details, status, type_case, case_no } = req.body;
     const file = req.file;
 
     let file_path: string | null = null;
+    let hashtypecase: string | null = null;
+
+ 
+    if (type_case) {
+      hashtypecase = hashString(type_case);
+    }
 
     if (file) {
       file_path = await uploadToSupabase({
@@ -33,7 +41,7 @@ export const createBlotter = async (
         resident_id,
         details,
         status,
-        h_resident,
+        type_case: hashtypecase,
         case_no,
         file_path,
       },
@@ -82,7 +90,7 @@ export const searchBlotters = async (req: Request, res: Response) => {
             },
           },
           {
-            h_resident: {
+            type_case: {
               contains: query,
               mode: "insensitive",
             },
@@ -232,7 +240,7 @@ export const updateBlotter = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { details, status, resident_id, h_resident, case_no } = req.body;
+    const { details, status, resident_id, type_case, case_no } = req.body;
     const file = req.file;
     const { id } = req.params;
 
@@ -248,6 +256,11 @@ export const updateBlotter = async (
     }
 
     let file_path: string | undefined;
+    let hashtypecase: string | undefined;
+
+    if (type_case) {
+      hashtypecase = hashString(type_case);
+    }
 
     if (file) {
       file_path = await updateSupabaseFile({
@@ -263,7 +276,7 @@ export const updateBlotter = async (
         details: details ?? undefined,
         status: status ?? undefined,
         resident_id: resident_id ?? undefined,
-        h_resident: h_resident ?? undefined,
+        type_case: hashtypecase ?? undefined,
         case_no: case_no ?? undefined,
         file_path: file_path ?? undefined,
         updated_at: new Date(),
@@ -304,6 +317,159 @@ export const deleteBlotter = async (
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Unknown error occurred",
+    });
+  }
+};
+
+type GroupedCase = {
+  case_no: string | null;
+  date: string | null;
+  time: string | null;
+  complaint_type: string | null;
+  status: string;
+  created_at: Date;
+};
+
+type GroupedEntry = {
+  total: number;
+  statuses: Record<string, number>;
+  cases: GroupedCase[];
+};
+
+type GroupedReport = Record<string, GroupedEntry>;
+
+// ✅ GET /blotter/report?type=monthly&month=5&year=2026
+// ✅ GET /blotter/report?type=yearly&year=2026
+export const getBlotterReport = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const now = new Date();
+    const type = (req.query.type as string) ?? "monthly"; // "monthly" | "yearly"
+
+    const year = req.query.year
+      ? parseInt(req.query.year as string)
+      : now.getFullYear();
+
+    if (isNaN(year) || year < 2000 || year > 2100) {
+      res.status(400).json({ error: "Invalid year." });
+      return;
+    }
+
+    let start: Date;
+    let end: Date;
+    let label: string;
+
+    if (type === "yearly") {
+      // ✅ Full year range
+      start = new Date(year, 0, 1);
+      end = new Date(year, 11, 31, 23, 59, 59, 999);
+      label = `${year}`;
+    } else {
+      // ✅ Monthly range (default)
+      const month = req.query.month
+        ? parseInt(req.query.month as string) - 1
+        : now.getMonth();
+
+      if (isNaN(month) || month < 0 || month > 11) {
+        res.status(400).json({ error: "Invalid month. Use 1-12." });
+        return;
+      }
+
+      start = new Date(year, month, 1);
+      end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      label = start.toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      });
+    }
+
+    // ✅ Single query
+    const detailed = await prisma.blotter.findMany({
+      where: {
+        created_at: {
+          gte: start,
+          lte: end,
+        },
+      },
+      select: {
+        status: true,
+        created_at: true,
+        details: true,
+      },
+      orderBy: { created_at: "asc" },
+    });
+
+    // ✅ Decrypt each record
+    const decrypted = detailed.map((item) => {
+      let parsed: Record<string, string> = {};
+      try {
+        if (item.details) {
+          parsed = JSON.parse(decryptAll(item.details));
+        }
+      } catch {}
+
+      return {
+        complaint_type: parsed.complaint_type ?? null,
+        case_no: parsed.case_no ?? null,
+        date: parsed.date ?? null,
+        time: parsed.time ?? null,
+        status: item.status,
+        created_at: item.created_at,
+      };
+    });
+
+    // ✅ Group by complaint_type
+    const grouped = decrypted.reduce<GroupedReport>((acc, item) => {
+      const key = item.complaint_type ?? "Uncategorized";
+      if (!acc[key]) {
+        acc[key] = { total: 0, statuses: {}, cases: [] };
+      }
+      acc[key].total += 1;
+      acc[key].statuses[item.status] =
+        (acc[key].statuses[item.status] ?? 0) + 1;
+      acc[key].cases.push({
+        case_no: item.case_no,
+        date: item.date,
+        time: item.time,
+        complaint_type: item.complaint_type,
+        status: item.status,
+        created_at: item.created_at,
+      });
+      return acc;
+    }, {});
+
+    const summary = Object.entries(grouped).map(([complaint_type, data]) => ({
+      complaint_type,
+      count: data.total,
+    }));
+
+    // ✅ Only included for yearly
+    const by_month =
+      type === "yearly"
+        ? decrypted.reduce<Record<string, number>>((acc, item) => {
+            const monthLabel = new Date(item.created_at).toLocaleString(
+              "default",
+              { month: "long" }
+            );
+            acc[monthLabel] = (acc[monthLabel] ?? 0) + 1;
+            return acc;
+          }, {})
+        : undefined;
+
+    res.status(200).json({
+      type,
+      label,
+      total_cases: decrypted.length,
+      ...(by_month && { by_month }), // only appears in yearly
+      summary,
+      grouped,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error",
     });
   }
 };

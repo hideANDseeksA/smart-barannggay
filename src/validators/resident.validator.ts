@@ -39,6 +39,7 @@ export const residentSchema = z.object({
   voting_status: optionalText("Voting status", 30),
   sector: optionalText("Sector", 50),
   remarks: optionalText("Remarks", 255),
+  occupation: optionalText("Occupation", 100),  // ✅ Added
 
   email_address: z.union([
     z.string().trim().email("Invalid email address"),
@@ -94,6 +95,11 @@ export const residentSchema = z.object({
       "unknown",
     ])
     .optional(),
+
+  citizenship: z                          // ✅ Added
+    .enum(["filipino", "foreign", "dual"])
+    .optional()
+    .nullable(),
 
   purok_id: z.union([
     z.string().uuid("Invalid purok_id"),

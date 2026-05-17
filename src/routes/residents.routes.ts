@@ -9,6 +9,8 @@ import {
   deleteResident,
 
 } from "../controllers/residents.controller"
+
+import { getRBIFormC } from "../controllers/rbiform.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware"
 import { upload_csv } from "../middleware/upload"
@@ -21,24 +23,26 @@ import {
 
 const router = express.Router()
 
-const SENSITIVE_FIELDS = [
-  "f_name",
-  "m_name",
-  "l_name",
-  "s_name",
-  "b_place",
-  "house_no",
-  "email_address",
-  "contact_no",
-  "purok"
-]
+  const SENSITIVE_FIELDS = [
+    "f_name",
+    "m_name",
+    "l_name",
+    "s_name",
+    "b_place",
+    "house_no",
+    "email_address",
+    "contact_no",
+    "purok",
+    "citizenship",
+    "occupation",
+  ]
 
 
 
 router.post("/",   validate(residentUpdateSchema),encryptFields(SENSITIVE_FIELDS), createResident)
 
 router.get("/", decryptFields(SENSITIVE_FIELDS), getResidents)
-
+router.get("/export/rbi", getRBIFormC)
 router.get("/bdac", decryptFields(SENSITIVE_FIELDS), getBDACResidents)
 
 router.get("/archive", decryptFields(SENSITIVE_FIELDS), getArchiveResidents)

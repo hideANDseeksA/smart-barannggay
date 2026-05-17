@@ -10,6 +10,7 @@ import {
     generateTransactionCertificate,
     getTransactionByIds,
     cancelTransaction,
+    getTransactionReport
 } from "../controllers/transaction.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware"
@@ -36,6 +37,14 @@ router.post(
   encryptFields(SENSITIVE_FIELDS),
   createTransaction
 );
+
+
+router.get("/report",
+  // decryptFields(SENSITIVE_FIELDS),
+  // authenticate,
+  // rbac("admin", "staff"),
+  getTransactionReport
+)
 
 router.get("/appointment-test", 
   decryptFields(SENSITIVE_FIELDS),

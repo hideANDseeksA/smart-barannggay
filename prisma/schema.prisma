@@ -50,9 +50,11 @@ model residents {
   civil_status           Civil?
   education              E_attainment?
   emp_status             Emp_Status?
-  h_contact_no           String?
+  h_full_name            String?
   h_email_address        String?           @unique
   h_l_name               String?
+  citizenship String?
+  occupation  String?
   blotter                blotter[]
   complaints             complaints[]
   health_records         health_records[]
@@ -71,7 +73,7 @@ model complaints {
   status         String    @default("pending")
   image_paths    String?
   created_at     DateTime  @default(now())
-  updated_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
   resident       residents @relation(fields: [resident_id], references: [id])
 }
 
@@ -79,11 +81,11 @@ model blotter {
   id          String                 @id @default(uuid()) @db.Uuid
   status      String                 @default("pending")
   created_at  DateTime               @default(now())
-  updated_at  DateTime               @default(now())
+  updated_at  DateTime               @updatedAt
   details     String?
   file_path   String?
   resident_id String                 @db.Uuid
-  h_resident  String?
+  type_case   String?
   case_no     String?                @unique
   resident    residents              @relation(fields: [resident_id], references: [id])
 }

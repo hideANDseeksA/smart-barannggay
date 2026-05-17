@@ -6,6 +6,7 @@ import {
   getBlotterById,
   updateBlotter,
   deleteBlotter,
+  getBlotterReport
 
 } from "../controllers/blotter.controller";
 import { encryptFields } from "../middleware/encrypt.middleware";
@@ -32,6 +33,12 @@ router.get(
     getbBlotter
 
 
+)
+
+
+router.get(
+  "/report",
+  getBlotterReport
 )
 router.get(
   "/:id",

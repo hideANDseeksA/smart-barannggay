@@ -8,14 +8,14 @@ import {
   updateResident,
   deleteResident,
 
-} from "@/controllers/residents.controller"
-import { encryptFields } from "@/middleware/encrypt.middleware"
-import { decryptFields } from "@/middleware/decrypt.middleware"
-import { validate } from "@/middleware/validate.middleware"
+} from "../../controllers/residents.controller"
+import { encryptFields } from "../../middleware/encrypt.middleware"
+import { decryptFields } from "../../middleware/decrypt.middleware"
+import { validate } from "../../middleware/validate.middleware"
 import {
   residentSchema,
   residentUpdateSchema,
-} from "@/validators/resident.validator"
+} from "../../validators/resident.validator"
 
 
 const router = express.Router()

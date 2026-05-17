@@ -430,3 +430,4 @@ export const deleteResident = async (req: Request, res: Response): Promise<void>
    handlePrismaError(err, res)
   }
 }
+
