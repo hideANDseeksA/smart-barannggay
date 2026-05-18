@@ -88,16 +88,27 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     const email = String(payload.email).toLowerCase().trim();
     const hashedEmail = hashEmail(email);
 
-    const resident = await prisma.residents.findUnique({
-      where: { h_email_address: hashedEmail },
-    });
+const resident = await prisma.residents.findFirst({
+  where: {
+    h_email_address: hashedEmail,
+  },
+});
 
-    if (!resident) {
-      res.status(403).json({
-        error: "Email not registered. Please sign up first.",
-      });
-      return;
-    }
+if (!resident) {
+  res.status(403).json({
+    success: false,
+    error: "Email not registered. Please sign up first.",
+  });
+  return;
+}
+
+if (resident.remarks === "archive") {
+  res.status(403).json({
+    success: false,
+    error: "This account has been archived. Please contact the barangay office.",
+  });
+  return;
+}
 
     let user = await prisma.user.findUnique({
       where: { resident_id: resident.id },
@@ -157,10 +168,27 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const email = String(email_address).toLowerCase().trim();
     const hashedEmail = hashEmail(email);
 
-    const resident = await prisma.residents.findUnique({
-      where: { h_email_address: hashedEmail },
-    });
+const resident = await prisma.residents.findFirst({
+  where: {
+    h_email_address: hashedEmail,
+  },
+});
 
+if (!resident) {
+  res.status(403).json({
+    success: false,
+    error: "Email not registered. Please sign up first.",
+  });
+  return;
+}
+
+if (resident.remarks === "archive") {
+  res.status(403).json({
+    success: false,
+    error: "This account has been archived. Please contact the barangay office.",
+  });
+  return;
+}
     if (!resident) {
       res.status(401).json({ error: "Invalid credentials" });
       return;

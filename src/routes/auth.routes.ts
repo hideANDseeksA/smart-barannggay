@@ -1,29 +1,33 @@
 import express from "express";
 import { login,googleLogin,signup,verifyEmail,resendVerificationEmail,forgotPassword,resetPassword,googleSignup,sendVerificationEmail  } from "../controllers/auth.controller";
 import { refreshAccessToken } from "../middleware/auth.middleware";
-
+import { createRateLimiter } from "../middleware/rate-limit";
 
 const router = express.Router();
 
-router.post("/login", login);
-
-router.post("/google-login",googleLogin)
 
 
-router.post("/signup", signup);
+const authRateLimiter = createRateLimiter(15, 10); // 15 minutes, max 10 requests
 
-router.post("/google-signup",googleSignup)
+router.post("/login",authRateLimiter, login);
+
+router.post("/google-login",authRateLimiter,googleLogin)
+
+
+router.post("/signup", authRateLimiter, signup);
+
+router.post("/google-signup",authRateLimiter,googleSignup)
 
 router.post("/verify-email", verifyEmail);
 
-router.post("/forgot-password",forgotPassword);
+router.post("/forgot-password",authRateLimiter,forgotPassword);
 
-router.post("/reset-password",resetPassword)
+router.post("/reset-password",authRateLimiter,resetPassword)
 
-router.post("/send-verification",sendVerificationEmail)
+router.post("/send-verification",authRateLimiter,sendVerificationEmail)
 
 
-router.post("/resend-verification-email", resendVerificationEmail);
+router.post("/resend-verification-email", authRateLimiter, resendVerificationEmail);
 // 🔁 Refresh access token (cookie only)
 router.post("/refresh", refreshAccessToken);
 

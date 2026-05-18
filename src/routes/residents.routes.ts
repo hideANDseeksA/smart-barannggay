@@ -7,9 +7,11 @@ import {
   getResidentsByID,
   updateResident,
   deleteResident,
+  updateResidentRemarks
 
 } from "../controllers/residents.controller"
-
+import { rbac } from "../middleware/rbac";
+import { authenticate } from "../middleware/auth.middleware";
 import { getRBIFormC } from "../controllers/rbiform.controller"
 import { encryptFields } from "../middleware/encrypt.middleware"
 import { decryptFields } from "../middleware/decrypt.middleware"
@@ -39,17 +41,17 @@ const router = express.Router()
 
 
 
-router.post("/",   validate(residentUpdateSchema),encryptFields(SENSITIVE_FIELDS), createResident)
-
+router.post("/",  encryptFields(SENSITIVE_FIELDS), createResident)
+router.patch("/remarks/:id", updateResidentRemarks)
 router.get("/", decryptFields(SENSITIVE_FIELDS), getResidents)
 router.get("/export/rbi", getRBIFormC)
-router.get("/bdac", decryptFields(SENSITIVE_FIELDS), getBDACResidents)
+router.get("/bdac", authenticate, rbac("staff"), decryptFields(SENSITIVE_FIELDS), getBDACResidents)
 
 router.get("/archive", decryptFields(SENSITIVE_FIELDS), getArchiveResidents)
 
 router.get("/:id", decryptFields(SENSITIVE_FIELDS), getResidentsByID)
 
-router.put("/:id",  validate(residentUpdateSchema), encryptFields(SENSITIVE_FIELDS), updateResident)
+router.put("/:id",  encryptFields(SENSITIVE_FIELDS), updateResident)
 
 router.delete("/:id", deleteResident)
 

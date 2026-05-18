@@ -418,7 +418,31 @@ export const updateResident = async (req: Request, res: Response): Promise<void>
  handlePrismaError(err, res)
   }
 }
+export const updateResidentRemarks = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { remarks } = req.body;
 
+    const resident = await prisma.residents.update({
+      where: {
+        id: req.params.id,
+      },
+      data: {
+        remarks,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Resident remarks updated successfully.",
+      data: resident,
+    });
+  } catch (err) {
+    handlePrismaError(err, res);
+  }
+};
 /* DELETE */
 export const deleteResident = async (req: Request, res: Response): Promise<void> => {
   try {

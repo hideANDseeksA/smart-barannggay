@@ -116,7 +116,7 @@ export const updateCertificates = async (
 ): Promise<void> => {
   try {
     const { id } = req.params
-    const { template_name, template_price, requestType, public_view } = req.body
+    const { template_name, template_price,template_requirements, requestType, public_view } = req.body
     const file = req.file
 
     // 1️⃣ Find existing certificate
@@ -149,6 +149,7 @@ export const updateCertificates = async (
           ? Number(template_price)
           : existing.template_price,
         template_path,
+        template_requirements: template_requirements ?? existing.template_requirements,
         requestType:
           requestType === undefined
             ? existing.requestType

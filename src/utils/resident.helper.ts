@@ -14,24 +14,22 @@ export const getResidentById = async (resident_id: string) => {
 
   if (!resident) return null;
 
-  console.log([resident]);
+
   
   const [decrypted] = decryptAll([resident]);
 
-  console.log(decrypted);
+
   
 
   return decrypted;
 };
 
 export const formatResidentName = (resident: any) => {
-  console.log("Resident Data:", resident);
 
   const fullName = `${resident.f_name} ${
     resident.m_name ? resident.m_name + " " : ""
   }${resident.l_name}`;
 
-  console.log("Formatted Name:", fullName);
 
   return fullName;
 };
