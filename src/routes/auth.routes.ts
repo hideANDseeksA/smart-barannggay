@@ -35,8 +35,8 @@ router.post("/refresh", refreshAccessToken);
 router.post("/logout", (req, res) => {
   res.clearCookie("refresh_token", {
     httpOnly: true,
-    secure: false, // true in production
-    sameSite: "strict",
+    secure: true, // true in production
+    sameSite: "none", // must match cookie sameSite
     path: "/api", // must match cookie path
   });
   res.status(200).json({ message: "Logged out successfully" }   );
