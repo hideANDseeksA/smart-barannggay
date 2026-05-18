@@ -296,6 +296,52 @@ export const updateBlotter = async (
   }
 };
 
+export const updateBlotterStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { status } = req.body;
+    const { id } = req.params;
+
+    if (!status) {
+      res.status(400).json({
+        error: "Status is required",
+      });
+      return;
+    }
+
+    const existing = await prisma.blotter.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        error: "Blotter not found",
+      });
+      return;
+    }
+
+    await prisma.blotter.update({
+      where: { id },
+      data: {
+        status,
+        updated_at: new Date(),
+      },
+    });
+
+    apiCache.clearAll();
+
+    res.json({
+      message: "Blotter status updated successfully",
+    });
+  } catch (err) {
+    console.error("Update blotter status error:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+};
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export const deleteBlotter = async (

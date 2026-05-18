@@ -263,7 +263,7 @@ export const updateAndGenerateCertificate = async (
         certificate_id,
         resident_id,
         details,
-        status: "processing",
+        status: "completed", // Update status to completed immediately
       },
       include: {
         certificate: { select: { template_path: true } },
@@ -309,11 +309,6 @@ certificateData.year = year
     // 4️⃣ Generate DOCX
     const buffer = await generateCertificate(templateUrl, certificateData)
 
-    // 5️⃣ Mark transaction as completed BEFORE sending file
-    await prisma.transaction.update({
-      where: { id: transaction.id },
-      data: { status: "completed" },
-    })
 
     // 6️⃣ Send file
     res.setHeader(

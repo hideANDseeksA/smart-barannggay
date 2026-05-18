@@ -594,7 +594,7 @@ export const cancelTransaction = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    if (["completed", "declined"].includes(existingTransaction.status)) {
+    if (["completed", "declined","approved","ready to claim","cancelled","on process"].includes(existingTransaction.status)) {
       res.status(400).json({ error: "Cannot cancel this transaction" });
       return;
     }
@@ -762,13 +762,6 @@ export const generateTransactionCertificate = async (
     )
 
     res.send(buffer)
-
-    // ✅ Update status (async)
-    prisma.transaction.update({
-      where: { id },
-      data: { status: "completed" },
-    }).catch(console.error)
-
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Certificate generation failed",
@@ -907,12 +900,6 @@ export const updateAndGenerateCertificate = async (
 
     // 4️⃣ Generate DOCX buffer
     const buffer = await generateCertificate(templateUrl, certificateData)
-
-    // 5️⃣ Update transaction status to completed
-    prisma.transaction.update({
-      where: { id: transaction.id },
-      data: { status: "completed" },
-    }).catch(console.error)
 
     // 6️⃣ Send buffer for download
     res.setHeader(

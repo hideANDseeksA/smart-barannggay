@@ -5,8 +5,9 @@ import {
   getPregnancy_monitoringById,
   updatePregnancy_monitoring,
   deletePregnancy_monitoring,
-  getMissedVisits
-} from "../controllers/pregnancy_monitoring.controller"
+  getMissedVisits,
+  patchPregnancyMonitoringStatus
+    } from "../controllers/pregnancy_monitoring.controller"
 import { decryptFields } from "../middleware/decrypt.middleware"
 import { encryptFields } from "../middleware/encrypt.middleware"
 
@@ -27,4 +28,5 @@ router.put("/:id", encryptFields(SENSITIVE_FIELDS), updatePregnancy_monitoring)
 
 router.delete("/:id", deletePregnancy_monitoring)
 
+router.patch("/:id/status", patchPregnancyMonitoringStatus)
 export default router

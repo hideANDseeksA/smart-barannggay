@@ -6,11 +6,13 @@ import {
   getBlotterById,
   updateBlotter,
   deleteBlotter,
-  getBlotterReport
+  getBlotterReport,
+  updateBlotterStatus
 
 } from "../controllers/blotter.controller";
 import { encryptFields } from "../middleware/encrypt.middleware";
 import { decryptFields } from "../middleware/decrypt.middleware";
+
 import { upload } from "../middleware/upload"
 import { rbac } from "../middleware/rbac";
 import { authenticate } from "../middleware/auth.middleware";
@@ -39,6 +41,10 @@ router.get(
 router.get(
   "/report",
   getBlotterReport
+)
+router.patch  (
+  "/:id/status",
+  updateBlotterStatus
 )
 router.get(
   "/:id",

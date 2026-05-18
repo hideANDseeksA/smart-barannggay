@@ -388,7 +388,58 @@ export const updatePregnancy_monitoring = async (req: Request, res: Response): P
     }
   }
 };
+export const patchPregnancyMonitoringStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
 
+    // Validate status input
+    if (!status) {
+      res.status(400).json({
+        error: "Status is required",
+      });
+      return;
+    }
+
+    // Check if record exists
+    const existing = await prisma.pregnancy_monitoring.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        error: "Pregnancy monitoring record not found",
+      });
+      return;
+    }
+
+    // Update only status
+    const updatedStatus = await prisma.pregnancy_monitoring.update({
+      where: { id },
+      data: {
+        status,
+      },
+    });
+
+    res.status(200).json({
+      message: "Pregnancy monitoring status updated successfully",
+      data: updatedStatus,
+    });
+  } catch (err) {
+    if (err instanceof Error) {
+      res.status(500).json({
+        error: err.message,
+      });
+    } else {
+      res.status(500).json({
+        error: "Unknown error occurred",
+      });
+    }
+  }
+};
 /* DELETE */
 export const deletePregnancy_monitoring = async (req: Request, res: Response): Promise<void> => {
   try {
