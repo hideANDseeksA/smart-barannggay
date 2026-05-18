@@ -263,7 +263,7 @@ export const updateAndGenerateCertificate = async (
         certificate_id,
         resident_id,
         details,
-        status: "completed", // Update status to completed immediately
+        status: "on processing", // Update status to completed immediately
       },
       include: {
         certificate: { select: { template_path: true } },
